@@ -1,7 +1,7 @@
 'use client'
 
 // Main landing page component for Nester - AI-powered property content generation
-import { useState } from 'react'
+import { useState } from 'react' 
 import { motion } from 'framer-motion'
 import { PropertyUrlForm } from '@/components/forms/property-url-form'
 import { PropertyManualForm } from '@/components/forms/property-manual-form'
