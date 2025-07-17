@@ -1,0 +1,28 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- House Icon -->
+  <g transform="translate(0, 8)">
+    <!-- Roof -->
+    <path d="M12 2L22 10V22H2V10L12 2Z" fill="#3B82F6" stroke="#1E40AF" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- Door -->
+    <rect x="8" y="14" width="8" height="8" fill="#1E40AF" rx="1"/>
+    <!-- Window -->
+    <rect x="4" y="12" width="3" height="3" fill="#F59E0B" rx="0.5"/>
+    <rect x="17" y="12" width="3" height="3" fill="#F59E0B" rx="0.5"/>
+    <!-- Chimney -->
+    <rect x="18" y="4" width="2" height="6" fill="#1E40AF"/>
+  </g>
+  
+  <!-- Text -->
+  <g transform="translate(32, 0)">
+    <text x="0" y="16" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#1F2937">
+      Nester
+    </text>
+    <text x="0" y="30" font-family="Inter, system-ui, sans-serif" font-size="10" font-weight="400" fill="#6B7280">
+      Real Estate Marketing
+    </text>
+  </g>
+  
+  <!-- Decorative Elements -->
+  <circle cx="26" cy="6" r="1" fill="#F59E0B" opacity="0.6"/>
+  <circle cx="28" cy="34" r="1" fill="#3B82F6" opacity="0.4"/>
+</svg>

@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for Dynamic Branding */
+:root {
+  /* Default Nester Brand Colors */
+  --brand-primary: #2563eb;
+  --brand-secondary: #64748b;
+  --brand-accent: #3b82f6;
+  --brand-font: 'Inter', sans-serif;
+  --brand-logo: url('/assets/nester-logo.svg');
+  --company-name: 'Nester';
+  
+  /* Nester System Colors */
+  --nester-primary: #2563eb;
+  --nester-secondary: #64748b;
+  --nester-accent: #3b82f6;
+  --nester-font: 'Inter', sans-serif;
+  --nester-logo: url('/assets/nester-logo.svg');
+}
+
+/* Brand-aware utility classes */
+@layer utilities {
+  .brand-logo {
+    background-image: var(--brand-logo);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  
+  .brand-primary {
+    color: var(--brand-primary);
+  }
+  
+  .brand-bg-primary {
+    background-color: var(--brand-primary);
+  }
+  
+  .brand-secondary {
+    color: var(--brand-secondary);
+  }
+  
+  .brand-bg-secondary {
+    background-color: var(--brand-secondary);
+  }
+  
+  .brand-font {
+    font-family: var(--brand-font);
+  }
+  
+  .company-name::after {
+    content: var(--company-name);
+  }
+  
+  /* Nester default styling */
+  .nester-primary {
+    color: var(--nester-primary);
+  }
+  
+  .nester-bg-primary {
+    background-color: var(--nester-primary);
+  }
+  
+  .nester-secondary {
+    color: var(--nester-secondary);
+  }
+  
+  .nester-bg-secondary {
+    background-color: var(--nester-secondary);
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .btn-brand {
+    @apply bg-brand-primary hover:bg-opacity-90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+  
+  .card-brand {
+    @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+  }
+  
+  .input-brand {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition-all duration-200;
+  }
+  
+  .text-brand-gradient {
+    @apply bg-gradient-to-r from-brand-primary to-brand-accent bg-clip-text text-transparent;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary;
+  }
+  
+  .property-card {
+    @apply bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden;
+  }
+  
+  .social-platform-icon {
+    @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  }
+  
+  .analytics-card {
+    @apply bg-white rounded-lg p-6 shadow-sm border border-gray-100;
+  }
+  
+  .metric-value {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  
+  .metric-label {
+    @apply text-sm text-gray-600 uppercase tracking-wide;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .status-processing {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-completed {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-failed {
+    @apply bg-red-100 text-red-800;
+  }
+}
+
+/* Global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--brand-font);
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-secondary);
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .mobile-full {
+    width: 100%;
+  }
+}
