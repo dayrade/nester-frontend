@@ -93,7 +93,7 @@ export default function DashboardPage() {
       setUser(user)
       await withLoading(
         () => loadDashboardData(user.id),
-        'NESTER'
+        'NESTER' 
       )
     }
 
