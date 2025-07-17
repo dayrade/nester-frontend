@@ -6,6 +6,7 @@ import { BrandProvider } from '@/lib/providers/brand-provider'
 import { Toaster } from 'react-hot-toast'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { ErrorReportingProvider } from '@/lib/providers/error-reporting-provider'
+import { LoadingProvider } from '@/contexts/loading-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -113,7 +114,9 @@ export default function RootLayout({
           <SupabaseProvider>
             <ErrorReportingProvider>
               <BrandProvider>
-                {children}
+                <LoadingProvider>
+                  {children}
+                </LoadingProvider>
                 <Toaster
                   position="top-right"
                   toastOptions={{

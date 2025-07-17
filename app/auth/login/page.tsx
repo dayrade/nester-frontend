@@ -34,10 +34,10 @@ export default function LoginPage() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard')
+      router.push(redirectTo)
       return
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, redirectTo])
 
   // Set initial mode and handle verification status
   useEffect(() => {

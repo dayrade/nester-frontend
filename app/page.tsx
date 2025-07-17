@@ -8,7 +8,7 @@ import { PropertyManualForm } from '@/components/forms/property-manual-form'
 import { Hero } from '@/components/landing/hero'
 import { Features } from '@/components/landing/features'
 import { Pricing } from '@/components/landing/pricing'
-import { Footer } from '@/components/layout/footer'
+import { Footer } from '@/components/layout/footer' 
 import Navbar from '@/components/navigation/navbar'
 import { useSupabase } from '@/lib/providers/supabase-provider'
 

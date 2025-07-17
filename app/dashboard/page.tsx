@@ -34,9 +34,11 @@ import {
   Users,
   BarChart3,
   Activity,
-  ArrowUpRight
+  ArrowUpRight,
+  Settings
 } from 'lucide-react'
 import { formatCurrency, formatNumber, formatRelativeTime } from '@/lib/utils'
+import { useLoading } from '@/hooks/use-loading'
 import type { 
   PropertyWithImages, 
   SocialPostWithProperty, 
@@ -74,7 +76,7 @@ interface RecentActivity {
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClientComponentClient<Database>()
-  const [loading, setLoading] = useState(true)
+  const { showLoader, hideLoader, withLoading, isLoading } = useLoading()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentProperties, setRecentProperties] = useState<PropertyWithImages[]>([])
   const [recentPosts, setRecentPosts] = useState<SocialPostWithProperty[]>([])
@@ -89,7 +91,10 @@ export default function DashboardPage() {
         return
       }
       setUser(user)
-      await loadDashboardData(user.id)
+      await withLoading(
+        () => loadDashboardData(user.id),
+        'NESTER'
+      )
     }
 
     getUser()
@@ -97,7 +102,6 @@ export default function DashboardPage() {
 
   const loadDashboardData = async (userId: string) => {
     try {
-      setLoading(true)
 
       // For demo purposes, let's use sample data to show the UI
       // In production, this would load from Supabase
@@ -240,7 +244,7 @@ export default function DashboardPage() {
 
       // Generate comprehensive recent activity
       const activity: RecentActivity[] = [
-        ...properties.slice(0, 2).map(prop => ({
+        ...sampleProperties.slice(0, 2).map(prop => ({
           id: prop.id,
           type: 'property_added' as const,
           title: 'New Property Added',
@@ -249,7 +253,7 @@ export default function DashboardPage() {
           property_id: prop.id,
           status: prop.listing_status
         })),
-        ...posts.slice(0, 2).map(post => ({
+        ...samplePosts.slice(0, 2).map(post => ({
           id: post.id,
           type: 'post_published' as const,
           title: 'Social Post Published',
@@ -259,7 +263,7 @@ export default function DashboardPage() {
           property_id: post.property_id
         })),
         // Add content generation activities
-        ...properties.filter(p => p.content_generation_status?.includes('completed')).slice(0, 3).map(prop => {
+        ...sampleProperties.filter(p => p.content_generation_status?.includes('completed')).slice(0, 3).map(prop => {
           let activityType: RecentActivity['type'] = 'content_generated'
           let title = 'Content Generated'
           
@@ -288,7 +292,7 @@ export default function DashboardPage() {
           }
         }),
         // Add lead qualification activities
-        ...chatSessions.filter(s => s.lead_qualification_score >= 70).slice(0, 2).map(session => ({
+        ...sampleChatSessions.filter(s => s.lead_qualification_score >= 70).slice(0, 2).map(session => ({
           id: session.id,
           type: 'lead_qualified' as const,
           title: 'Lead Qualified',
@@ -299,11 +303,13 @@ export default function DashboardPage() {
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8)
 
       setRecentActivity(activity)
+      
+      // Simulate loading delay to demonstrate the loader
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       toast.error('Failed to load dashboard data')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -311,7 +317,7 @@ export default function DashboardPage() {
     router.push('/dashboard/properties?action=add')
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -377,142 +383,216 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here's what's happening with your properties.
-          </p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="space-y-6 sm:space-y-8">
+      {/* Enhanced Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
+              <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                Dashboard
+              </h1>
+              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground">
+                Welcome back! Here's what's happening with your properties.
+              </p>
+            </div>
+          </div>
         </div>
-        <Button onClick={handleAddProperty} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Property
-        </Button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button variant="outline" onClick={() => router.push('/dashboard/analytics')} className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
+            <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Analytics</span>
+          </Button>
+          <Button onClick={handleAddProperty} className="gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-xs sm:text-sm px-2 sm:px-4">
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Add Property</span>
+            <span className="xs:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      {/* Enhanced Stats Cards */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-            <Home className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Total Properties</CardTitle>
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+              <Home className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalProperties || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.activeListings || 0} active listings
-            </p>
+            <div className="text-3xl font-bold text-gray-900">{stats?.totalProperties || 0}</div>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">+12%</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                {stats?.activeListings || 0} active listings
+              </p>
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-100 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Content Generated</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Content Generated</CardTitle>
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.contentGenerated || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.micrositesLive || 0} microsites live
-            </p>
+            <div className="text-3xl font-bold text-gray-900">{stats?.contentGenerated || 0}</div>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">+8%</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                {stats?.micrositesLive || 0} microsites live
+              </p>
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-100 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lead Conversion</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Lead Conversion</CardTitle>
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+              <Target className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(stats?.conversionRate || 0).toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.totalLeads || 0} total leads
-            </p>
+            <div className="text-3xl font-bold text-gray-900">{(stats?.conversionRate || 0).toFixed(1)}%</div>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">+5%</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                {stats?.totalLeads || 0} total leads
+              </p>
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-100 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Portfolio Value</CardTitle>
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
+              <DollarSign className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats?.averagePrice || 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              Average property price
-            </p>
+            <div className="text-3xl font-bold text-gray-900">{formatCurrency(stats?.averagePrice || 0)}</div>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1">
+                <ArrowUpRight className="h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">+15%</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Average property price
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Content Generation Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Images</CardTitle>
-            <Palette className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.imagesGenerated || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Properties with AI images
-            </p>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Content Generation</h2>
+            <p className="text-sm sm:text-base text-gray-600">AI-powered marketing assets for your properties</p>
+          </div>
+          <Button variant="outline" onClick={() => router.push('/dashboard/content')} className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 self-start sm:self-auto">
+            <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Generate Content</span>
+            <span className="xs:hidden">Generate</span>
+          </Button>
+        </div>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Social Campaigns</CardTitle>
-            <Megaphone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.activeCampaigns || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              70-day campaigns active
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">PDF Brochures</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.brochuresCreated || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Professional brochures
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Live Microsites</CardTitle>
-            <Globe className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.micrositesLive || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              White-label websites
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+          <Card className="border-0 shadow-md bg-white hover:shadow-lg transition-all duration-300 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">AI Images</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Camera className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats?.imagesGenerated || 0}</div>
+              <p className="text-xs text-gray-600 mt-1">
+                Properties with AI images
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 shadow-md bg-white hover:shadow-lg transition-all duration-300 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Social Campaigns</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Megaphone className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats?.activeCampaigns || 0}</div>
+              <p className="text-xs text-gray-600 mt-1">
+                70-day campaigns active
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 shadow-md bg-white hover:shadow-lg transition-all duration-300 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">PDF Brochures</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileText className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats?.brochuresCreated || 0}</div>
+              <p className="text-xs text-gray-600 mt-1">
+                Professional brochures
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 shadow-md bg-white hover:shadow-lg transition-all duration-300 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Live Microsites</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Globe className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats?.micrositesLive || 0}</div>
+              <p className="text-xs text-gray-600 mt-1">
+                White-label websites
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-7">
         {/* Recent Properties */}
-        <Card className="col-span-4">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="lg:col-span-4 border-0 shadow-lg bg-white">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-3">
             <div>
-              <CardTitle>Recent Properties</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg sm:text-xl font-bold text-gray-900">Recent Properties</CardTitle>
+              <CardDescription className="text-sm sm:text-base text-gray-600">
                 Your latest property listings
               </CardDescription>
             </div>
@@ -520,55 +600,63 @@ export default function DashboardPage() {
               variant="ghost" 
               size="sm" 
               onClick={() => router.push('/dashboard/properties')}
-              className="gap-2"
+              className="gap-1 sm:gap-2 hover:bg-blue-50 hover:text-blue-600 text-xs sm:text-sm self-start sm:self-auto"
             >
               View All
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {recentProperties.length === 0 ? (
-              <div className="text-center py-8">
-                <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No properties yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Add your first property to get started
+              <div className="text-center py-12">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center mx-auto mb-4">
+                  <Building className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No properties yet</h3>
+                <p className="text-gray-600 mb-6">
+                  Add your first property to get started with AI-powered marketing
                 </p>
-                <Button onClick={handleAddProperty} className="gap-2">
+                <Button onClick={handleAddProperty} className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
                   <Plus className="h-4 w-4" />
                   Add Property
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {recentProperties.map((property) => (
                   <div 
                     key={property.id} 
-                    className="flex items-center space-x-4 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                    className="flex items-center space-x-4 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 cursor-pointer transition-all duration-200 group"
                     onClick={() => router.push(`/property/${property.id}`)}
                   >
-                    <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
+                    <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden">
                       {property.property_images?.[0] ? (
                         <img 
                           src={property.property_images[0].storage_path} 
                           alt={property.address}
-                          className="h-12 w-12 rounded-lg object-cover"
+                          className="h-14 w-14 rounded-xl object-cover"
                         />
                       ) : (
-                        <Home className="h-6 w-6 text-muted-foreground" />
+                        <Home className="h-7 w-7 text-gray-500" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{property.address}</p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{formatCurrency(property.price || 0)}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {property.status}
+                      <p className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">{property.address}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-lg font-bold text-green-600">{formatCurrency(property.price || 0)}</span>
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                          {property.listing_status}
                         </Badge>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatRelativeTime(property.created_at)}
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500 mb-1">
+                        {formatRelativeTime(property.created_at)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-2 w-2 rounded-full bg-green-400"></div>
+                        <span className="text-xs text-gray-600 capitalize">{property.content_generation_status?.replace('_', ' ')}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -578,41 +666,75 @@ export default function DashboardPage() {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
+        <Card className="lg:col-span-3 border-0 shadow-lg bg-white">
+          <CardHeader className="border-b border-gray-100 pb-4">
+            <CardTitle className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity</CardTitle>
+            <CardDescription className="text-sm sm:text-base text-gray-600">
               Latest updates and actions
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {recentActivity.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
+              <div className="text-center py-12">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="h-6 w-6 text-gray-500" />
+                </div>
+                <p className="text-sm text-gray-600">
                   No recent activity
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      {activity.type === 'property_added' && <Home className="h-4 w-4 text-primary" />}
-                      {activity.type === 'post_published' && <Share2 className="h-4 w-4 text-primary" />}
-                      {activity.type === 'content_generated' && <MessageSquare className="h-4 w-4 text-primary" />}
+                {recentActivity.map((activity) => {
+                  const getActivityIcon = (type: string) => {
+                    switch (type) {
+                      case 'property_added':
+                        return { icon: Home, color: 'from-blue-500 to-indigo-500' }
+                      case 'post_published':
+                        return { icon: Share2, color: 'from-green-500 to-emerald-500' }
+                      case 'content_generated':
+                        return { icon: MessageSquare, color: 'from-purple-500 to-pink-500' }
+                      case 'images_generated':
+                        return { icon: Camera, color: 'from-pink-500 to-rose-500' }
+                      case 'brochure_created':
+                        return { icon: FileText, color: 'from-orange-500 to-amber-500' }
+                      case 'microsite_launched':
+                        return { icon: Globe, color: 'from-cyan-500 to-blue-500' }
+                      case 'campaign_started':
+                        return { icon: Megaphone, color: 'from-violet-500 to-purple-500' }
+                      case 'lead_qualified':
+                        return { icon: Target, color: 'from-emerald-500 to-teal-500' }
+                      default:
+                        return { icon: Activity, color: 'from-gray-500 to-slate-500' }
+                    }
+                  }
+                  
+                  const { icon: Icon, color } = getActivityIcon(activity.type)
+                  
+                  return (
+                    <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className={`h-10 w-10 rounded-full bg-gradient-to-r ${color} flex items-center justify-center shadow-sm`}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{activity.title}</p>
+                        <p className="text-xs text-gray-600 truncate mt-1">
+                          {activity.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <p className="text-xs text-gray-500">
+                            {formatRelativeTime(activity.timestamp)}
+                          </p>
+                          {activity.status && (
+                            <Badge variant="outline" className="text-xs px-2 py-0.5">
+                              {activity.status.replace('_', ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatRelativeTime(activity.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
@@ -620,54 +742,83 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/properties/add')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Add Property</CardTitle>
-            <Plus className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Add a new property to your portfolio
-            </p>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
+            <p className="text-gray-600">Get started with common tasks</p>
+          </div>
+        </div>
         
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/content')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Content</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Generate images, brochures & microsites
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/social')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Social Campaigns</CardTitle>
-            <Megaphone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Manage 70-day social campaigns
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/leads')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lead Management</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Track and manage qualified leads
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 group" onClick={() => router.push('/dashboard/properties/add')}>
+            <CardContent className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                <Plus className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2">Add Property</h3>
+              <p className="text-sm text-gray-600">
+                Add a new property to your portfolio
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+                  Quick Start
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 group" onClick={() => router.push('/dashboard/content')}>
+            <CardContent className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                <Zap className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2">AI Content</h3>
+              <p className="text-sm text-gray-600">
+                Generate images, brochures & microsites
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary" className="bg-purple-100 text-purple-700 hover:bg-purple-200">
+                  AI Powered
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 group" onClick={() => router.push('/dashboard/social')}>
+            <CardContent className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                <Megaphone className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2">Social Campaigns</h3>
+              <p className="text-sm text-gray-600">
+                Manage 70-day social campaigns
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-200">
+                  Marketing
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 group" onClick={() => router.push('/dashboard/leads')}>
+            <CardContent className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                <Target className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2">Lead Management</h3>
+              <p className="text-sm text-gray-600">
+                Track and manage qualified leads
+              </p>
+              <div className="mt-4">
+                <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200">
+                  CRM
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
         </div>
       </div>
