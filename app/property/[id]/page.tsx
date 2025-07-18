@@ -34,6 +34,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils'
+import MortgageCalculator from '@/components/property/mortgage-calculator'
 
 interface PropertyWithImages extends Property {
   property_images: PropertyImage[]
@@ -649,6 +650,12 @@ export default function PropertyDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Mortgage Calculator */}
+            <MortgageCalculator 
+              propertyPrice={property.price || 0}
+              className=""
+            />
 
             {/* Content Generation Status */}
             {property.content_generation_status && (
