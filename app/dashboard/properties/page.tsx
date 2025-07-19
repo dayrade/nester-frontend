@@ -60,18 +60,20 @@ export default function PropertiesPage() {
     setError(null)
     
     try {
-      const { data, error } = await supabase
-        .from('properties')
-        .select(`
-          *,
-          property_images(*)
-        `)
-        .eq('agent_id', user.id)
-        .order('created_at', { ascending: false })
+      const response = await fetch(`/api/properties?agent_id=${user.id}&include_images=true`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      if (error) throw error
+      const result = await response.json()
       
-      setProperties(data || [])
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch properties')
+      }
+      
+      setProperties(result.properties || [])
     } catch (err) {
       console.error('Error fetching properties:', err)
       setError('Failed to load properties. Please try again.')
@@ -147,13 +149,18 @@ export default function PropertiesPage() {
     }
     
     try {
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', property.id)
-        .eq('agent_id', user.id)
+      const response = await fetch(`/api/properties?id=${property.id}&agent_id=${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      if (error) throw error
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete property')
+      }
       
       // Remove from local state
       setProperties(prev => prev.filter(p => p.id !== property.id))

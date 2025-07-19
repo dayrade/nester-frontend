@@ -14,7 +14,7 @@ import {
   X
 } from 'lucide-react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseHelpers } from '@/lib/supabase'
 
 interface PropertyWithImages extends Property {
   property_images: PropertyImage[]
@@ -42,10 +42,7 @@ export default function EditPropertyPage() {
       
       const { data, error } = await supabase
         .from('properties')
-        .select(`
-          *,
-          property_images (*)
-        `)
+        .select('*')
         .eq('id', params.id)
         .eq('agent_id', user?.id)
         .single()
@@ -59,7 +56,16 @@ export default function EditPropertyPage() {
         return
       }
       
-      setProperty(data)
+      // Fetch property images via backend API
+      const { data: imagesData } = await supabaseHelpers.getPropertyImages(params.id as string)
+      
+      // Combine property data with images
+      const propertyWithImages = {
+        ...data,
+        property_images: imagesData || []
+      }
+      
+      setProperty(propertyWithImages)
     } catch (err) {
       console.error('Error fetching property:', err)
       setError('Failed to load property. Please try again.')

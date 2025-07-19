@@ -16,7 +16,7 @@ const Context = createContext<BrandContext | undefined>(undefined)
 // Default Nester brand assets
 const DEFAULT_BRAND_ASSETS: BrandAssets = {
   mode: 'nester_default',
-  logo: '/assets/nester-logo.svg',
+  logo: '/images/nester-logo.svg',
   primaryColor: '#2563eb',
   secondaryColor: '#64748b',
   fontFamily: 'Inter',
@@ -54,7 +54,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
             persona_style: 'Concise & Factual',
             persona_key_phrases: ['Discover your dream home'],
             persona_phrases_to_avoid: ['cheap', 'deal'],
-            nester_logo_path: '/assets/nester-logo.svg',
+            nester_logo_path: '/images/nester-logo.svg',
             nester_primary_color: '#2563eb',
             nester_secondary_color: '#64748b',
             nester_font_family: 'Inter'

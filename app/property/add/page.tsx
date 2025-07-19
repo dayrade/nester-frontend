@@ -16,7 +16,26 @@ export default function AddPropertyPage() {
   const router = useRouter()
   const { user, supabase, loading: authLoading } = useSupabase()
   const { brandAssets } = useBrand()
+  const { withLoading } = useLoading()
+  
+  // All state hooks must be declared at the top
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [inputMethod, setInputMethod] = useState<InputMethod>('url')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [propertyUrl, setPropertyUrl] = useState('')
+  const [formData, setFormData] = useState<Partial<PropertyData>>({
+    address: '',
+    price: undefined,
+    bedrooms: undefined,
+    bathrooms: undefined,
+    square_feet: undefined,
+    property_type: 'house',
+    description: '',
+    features: [],
+    neighborhood_info: ''
+  })
+  const [images, setImages] = useState<File[]>([])
 
   // Authentication check
   useEffect(() => {
@@ -70,28 +89,6 @@ export default function AddPropertyPage() {
       </div>
     )
   }
-  const [inputMethod, setInputMethod] = useState<InputMethod>('url')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const { withLoading } = useLoading()
-  
-  // URL input state
-  const [propertyUrl, setPropertyUrl] = useState('')
-  
-  // Manual input state
-  const [formData, setFormData] = useState<Partial<PropertyData>>({
-    address: '',
-    price: undefined,
-    bedrooms: undefined,
-    bathrooms: undefined,
-    square_feet: undefined,
-    property_type: 'house',
-    description: '',
-    features: [],
-    neighborhood_info: ''
-  })
-  
-  const [images, setImages] = useState<File[]>([])
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,10 +132,8 @@ export default function AddPropertyPage() {
 
     try {
       await withLoading(async () => {
-      // Create property record
-      const { data: property, error: propertyError } = await supabase
-        .from('properties')
-        .insert({
+        // Prepare property data for API
+        const propertyData = {
           agent_id: user.id,
           address: formData.address!,
           price: formData.price,
@@ -150,50 +145,60 @@ export default function AddPropertyPage() {
           features: formData.features,
           neighborhood_info: formData.neighborhood_info,
           listing_status: 'active'
+        }
+
+        // Create property via API
+        const response = await fetch('/api/properties', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(propertyData)
         })
-        .select()
-        .single()
 
-      if (propertyError) throw propertyError
+        const result = await response.json()
 
-      // Upload images if any
-      if (images.length > 0) {
-        const uploadPromises = images.map(async (file, index) => {
-          const fileExt = file.name.split('.').pop()
-          const fileName = `${property.id}/${Date.now()}-${index}.${fileExt}`
-          
-          const { error: uploadError } = await supabase.storage
-            .from('property-images')
-            .upload(fileName, file)
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create property')
+        }
 
-          if (uploadError) throw uploadError
+        const property = result.data
 
-          // Create image record
-          const { error: imageError } = await supabase
-            .from('property_images')
-            .insert({
-              property_id: property.id,
-              storage_path: fileName,
-              display_order: index,
-              is_primary: index === 0
+        // Upload images if any
+        if (images.length > 0) {
+          const uploadPromises = images.map(async (file, index) => {
+            const formData = new FormData()
+            formData.append('image', file)
+            formData.append('displayOrder', index.toString())
+            formData.append('isPrimary', (index === 0).toString())
+            formData.append('altText', `Property image ${index + 1}`)
+            
+            const uploadResponse = await fetch(`/api/properties/${property.id}/images`, {
+              method: 'POST',
+              body: formData
             })
 
-          if (imageError) throw imageError
-        })
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json()
+              throw new Error(errorData.error || `Failed to upload image ${index + 1}`)
+            }
 
-        await Promise.all(uploadPromises)
-      }
+            return await uploadResponse.json()
+          })
 
-      // Trigger content generation
-      await fetch('/api/property/generate-content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          property_id: property.id
+          await Promise.all(uploadPromises)
+        }
+
+        // Trigger content generation
+        await fetch('/api/property/generate-content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            property_id: property.id
+          })
         })
-      })
 
         // Redirect to property page
         router.push(`/property/${property.id}`)

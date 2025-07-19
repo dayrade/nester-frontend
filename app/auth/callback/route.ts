@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
               persona_style: 'Concise & Factual',
               persona_key_phrases: ['Discover your dream home', 'Premium real estate marketing'],
               persona_phrases_to_avoid: ['cheap', 'deal', 'bargain'],
-              nester_logo_path: '/assets/nester-logo.svg',
+              nester_logo_path: '/images/nester-logo.svg',
               nester_primary_color: '#2563eb',
               nester_secondary_color: '#64748b',
               nester_font_family: 'Inter'

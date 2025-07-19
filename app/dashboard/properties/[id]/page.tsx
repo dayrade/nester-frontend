@@ -167,30 +167,3 @@ export default function PropertyDetailPage() {
     </div>
   )
 }
-
-// Generate metadata for the page
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const supabase = createClientComponentClient<Database>()
-  
-  try {
-    const { data: property } = await supabase
-      .from('properties')
-      .select('address, price')
-      .eq('id', params.id)
-      .single()
-
-    if (property) {
-      return {
-        title: `${property.address} - Property Management | Nester`,
-        description: `Manage marketing content and analytics for ${property.address}. Price: $${property.price?.toLocaleString()}`
-      }
-    }
-  } catch (error) {
-    console.error('Error generating metadata:', error)
-  }
-
-  return {
-    title: 'Property Management | Nester',
-    description: 'Manage your property marketing content and analytics'
-  }
-}

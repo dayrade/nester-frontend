@@ -87,7 +87,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       // Then notify our Express server
       if (data.session) {
         try {
-          await fetch('http://localhost:3001/api/auth/signin', {
+          await fetch('http://localhost:3002/api/auth/signin', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       // Then notify our Express server
       if (data.user) {
         try {
-          await fetch('http://localhost:3001/api/auth/signup', {
+          await fetch('http://localhost:3002/api/auth/signup', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -155,7 +155,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       
       // Then notify our Express server
       try {
-        await fetch('http://localhost:3001/api/auth/logout', {
+        await fetch('http://localhost:3002/api/auth/logout', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

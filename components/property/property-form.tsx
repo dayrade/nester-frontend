@@ -502,7 +502,7 @@ export default function PropertyForm({
                 {formData.existingImages.map((image) => (
                   <div key={image.id} className="relative group">
                     <Image
-                      src={image.image_url}
+                      src={image.original_url}
                       alt="Property"
                       width={200}
                       height={150}

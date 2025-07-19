@@ -54,7 +54,6 @@ export const supabaseHelpers = {
       .from('properties')
       .select(`
         *,
-        property_images(*),
         social_posts(count)
       `)
       .eq('agent_id', agentId)
@@ -66,12 +65,32 @@ export const supabaseHelpers = {
       .from('properties')
       .select(`
         *,
-        property_images(*),
         social_posts(*),
         chat_sessions(*)
       `)
       .eq('id', propertyId)
       .single()
+  },
+
+  // Property images via backend API
+  async getPropertyImages(propertyId: string) {
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/images`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return { data: result.data || [], error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
   },
 
   // Brand operations

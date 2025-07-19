@@ -2,8 +2,32 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Performance optimizations
+  swcMinify: true,
+  compress: true,
+  poweredByHeader: false,
+  
+  // Caching optimizations
+  generateEtags: true,
+  
+  // Build optimizations
   experimental: {
     serverComponentsExternalPackages: ['@sentry/nextjs'],
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
+  },
+  
+  // Compiler optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
   },
   images: {
     domains: [

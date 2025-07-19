@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseHelpers } from '@/lib/supabase'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils'
 import MortgageCalculator from '@/components/property/mortgage-calculator'
 
@@ -68,13 +68,10 @@ export default function PropertyDetailPage() {
       setLoading(true)
       setError(null)
       
-      // Fetch property with images
+      // Fetch property details
       const { data: propertyData, error: propertyError } = await supabase
         .from('properties')
-        .select(`
-          *,
-          property_images (*)
-        `)
+        .select('*')
         .eq('id', params.id)
         .eq('agent_id', user?.id)
         .single()
@@ -88,7 +85,16 @@ export default function PropertyDetailPage() {
         return
       }
       
-      setProperty(propertyData)
+      // Fetch property images via backend API
+      const { data: imagesData } = await supabaseHelpers.getPropertyImages(params.id as string)
+      
+      // Combine property data with images
+      const propertyWithImages = {
+        ...propertyData,
+        property_images: imagesData || []
+      }
+      
+      setProperty(propertyWithImages)
       
       // Fetch social posts for this property
       const { data: postsData, error: postsError } = await supabase
@@ -335,7 +341,7 @@ export default function PropertyDetailPage() {
                     {/* Main Image */}
                     <div className="relative aspect-video bg-gray-100">
                       <Image
-                        src={mainImage?.image_url || '/placeholder-property.svg'}
+                        src={mainImage?.original_url || '/placeholder-property.svg'}
                         alt={property.title}
                         fill
                         className="object-cover rounded-t-lg cursor-pointer"
@@ -367,7 +373,7 @@ export default function PropertyDetailPage() {
                               }`}
                             >
                               <Image
-                                src={image.image_url}
+                                src={image.original_url}
                                 alt={`Property image ${index + 1}`}
                                 fill
                                 className="object-cover"
@@ -715,7 +721,7 @@ export default function PropertyDetailPage() {
               <div className="space-y-4">
                 <div className="relative aspect-video">
                   <Image
-                    src={images[selectedImageIndex]?.image_url || '/placeholder-property.svg'}
+                    src={images[selectedImageIndex]?.original_url || '/placeholder-property.svg'}
                     alt={`Property image ${selectedImageIndex + 1}`}
                     fill
                     className="object-cover rounded-lg"
@@ -734,7 +740,7 @@ export default function PropertyDetailPage() {
                       }`}
                     >
                       <Image
-                        src={image.image_url}
+                        src={image.original_url}
                         alt={`Property image ${index + 1}`}
                         fill
                         className="object-cover"

@@ -39,7 +39,7 @@ export default function VerifyEmailPage() {
         await new Promise(resolve => setTimeout(resolve, 2000))
         
         // In a real implementation, you would verify the token with your backend
-        const response = await fetch('http://localhost:3001/api/auth/verify-email', {
+        const response = await fetch('http://localhost:3002/api/auth/verify-email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

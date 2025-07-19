@@ -9,7 +9,7 @@
   --brand-secondary: #64748b;
   --brand-accent: #3b82f6;
   --brand-font: 'Inter', sans-serif;
-  --brand-logo: url('/assets/nester-logo.svg');
+  --brand-logo: url('/images/nester-logo.svg');
   --company-name: 'Nester';
   
   /* Nester System Colors */
@@ -17,7 +17,7 @@
   --nester-secondary: #64748b;
   --nester-accent: #3b82f6;
   --nester-font: 'Inter', sans-serif;
-  --nester-logo: url('/assets/nester-logo.svg');
+  --nester-logo: url('/images/nester-logo.svg');
 }
 
 /* Brand-aware utility classes */

@@ -44,7 +44,7 @@ export default function PropertyCard({
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const primaryImage = property.property_images?.find(img => img.is_primary) || property.property_images?.[0]
-  const imageUrl = primaryImage?.image_url || '/placeholder-property.jpg'
+  const imageUrl = primaryImage?.original_url || '/placeholder-property.jpg'
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}/property/${property.id}`

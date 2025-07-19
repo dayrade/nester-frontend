@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/supabase'
+import { supabaseHelpers } from '@/lib/supabase'
 
 interface PropertyDashboardProps {
   propertyId: string
@@ -48,7 +49,7 @@ interface PropertyData {
   brochure_flipbook_url?: string
   property_images: Array<{
     id: string
-    image_url: string
+    original_url: string
     room_type: string
     is_primary: boolean
     style_variant?: string
@@ -114,15 +115,22 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
       // Fetch property details
       const { data: propertyData, error: propertyError } = await supabase
         .from('properties')
-        .select(`
-          *,
-          property_images(*)
-        `)
+        .select('*')
         .eq('id', propertyId)
         .single()
 
       if (propertyError) throw propertyError
-      setProperty(propertyData)
+      
+      // Fetch property images via backend API
+      const { data: imagesData } = await supabaseHelpers.getPropertyImages(propertyId)
+      
+      // Combine property data with images
+      const propertyWithImages = {
+        ...propertyData,
+        property_images: imagesData || []
+      }
+      
+      setProperty(propertyWithImages)
 
       // Fetch content generation status for each component
       await Promise.all([
