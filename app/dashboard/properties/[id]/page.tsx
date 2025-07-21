@@ -13,10 +13,10 @@ import Link from 'next/link'
 interface Property {
   id: string
   address: string
-  price: number
-  bedrooms: number
-  bathrooms: number
-  square_feet: number
+  price: number | null
+  bedrooms: number | null
+  bathrooms: number | null
+  square_feet: number | null
   property_type: string
   listing_status: string
   agent_id: string

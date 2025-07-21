@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSupabase } from '@/lib/providers/supabase-provider'
 import Navbar from '@/components/navigation/navbar'
-import { LeadManagement } from '@/components/leads/lead-management'
+import { LeadManagement, type Activity } from '@/components/leads/lead-management'
 import { 
   Users, 
   TrendingUp, 
@@ -40,6 +40,8 @@ const sampleLeads = [
     notes: 'Looking for move-in ready property. Prefers high floor with city views.',
     assignedAgent: 'agent-1',
     tags: ['hot-lead', 'luxury-buyer'],
+    requirements: ['move-in ready', 'high floor', 'city views'],
+    score: 85,
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-20'),
     lastContact: new Date('2024-01-18')
@@ -69,6 +71,8 @@ const sampleLeads = [
     notes: 'First-time buyer. Needs guidance through the process.',
     assignedAgent: 'agent-2',
     tags: ['first-time-buyer'],
+    requirements: ['good schools', 'family-friendly', 'safe neighborhood'],
+    score: 65,
     createdAt: new Date('2024-01-22'),
     updatedAt: new Date('2024-01-22'),
     lastContact: new Date('2024-01-22')
@@ -98,23 +102,23 @@ const sampleLeads = [
     notes: 'Experienced investor looking for portfolio expansion. Cash buyer.',
     assignedAgent: 'agent-1',
     tags: ['investor', 'cash-buyer', 'portfolio'],
+    requirements: ['high ROI', 'low maintenance', 'good location'],
+    score: 95,
     createdAt: new Date('2024-01-10'),
     updatedAt: new Date('2024-01-25'),
     lastContact: new Date('2024-01-24')
   }
 ]
 
-const sampleActivities = [
+const sampleActivities: Activity[] = [
   {
     id: '1',
     leadId: '1',
     type: 'call' as const,
     description: 'Initial consultation call - discussed budget and preferences',
     timestamp: new Date('2024-01-18T10:30:00'),
-    agentId: 'agent-1',
-    outcome: 'positive',
-    nextAction: 'Send property listings',
-    duration: 45
+    userId: 'agent-1',
+    outcome: 'positive'
   },
   {
     id: '2',
@@ -122,9 +126,8 @@ const sampleActivities = [
     type: 'email' as const,
     description: 'Sent curated property listings matching criteria',
     timestamp: new Date('2024-01-18T14:15:00'),
-    agentId: 'agent-1',
-    outcome: 'sent',
-    nextAction: 'Follow up in 2 days'
+    userId: 'agent-1',
+    outcome: 'positive'
   },
   {
     id: '3',
@@ -132,9 +135,8 @@ const sampleActivities = [
     type: 'note' as const,
     description: 'Lead expressed interest in suburban properties with good school districts',
     timestamp: new Date('2024-01-22T09:00:00'),
-    agentId: 'agent-2',
-    outcome: 'neutral',
-    nextAction: 'Research school districts'
+    userId: 'agent-2',
+    outcome: 'neutral'
   },
   {
     id: '4',
@@ -142,10 +144,8 @@ const sampleActivities = [
     type: 'meeting' as const,
     description: 'In-person meeting to discuss investment strategy and portfolio goals',
     timestamp: new Date('2024-01-24T16:00:00'),
-    agentId: 'agent-1',
-    outcome: 'positive',
-    nextAction: 'Prepare investment proposal',
-    duration: 90
+    userId: 'agent-1',
+    outcome: 'positive'
   },
   {
     id: '5',
@@ -153,9 +153,8 @@ const sampleActivities = [
     type: 'proposal-sent' as const,
     description: 'Sent comprehensive investment proposal with 3 property options',
     timestamp: new Date('2024-01-25T11:30:00'),
-    agentId: 'agent-1',
-    outcome: 'sent',
-    nextAction: 'Follow up within 48 hours'
+    userId: 'agent-1',
+    outcome: 'positive'
   }
 ]
 
@@ -212,7 +211,7 @@ export default function LeadsPage() {
     qualifiedLeads: leads.filter(l => l.status === 'qualified').length,
     hotLeads: leads.filter(l => l.priority === 'urgent' || l.priority === 'high').length,
     totalValue: leads.reduce((sum, l) => sum + l.budget.max, 0),
-    conversionRate: leads.length > 0 ? (leads.filter(l => l.status === 'closed-won').length / leads.length * 100) : 0
+    conversionRate: leads.length > 0 ? (leads.filter(l => l.status === 'proposal').length / leads.length * 100) : 0
   }
 
   if (!user) {

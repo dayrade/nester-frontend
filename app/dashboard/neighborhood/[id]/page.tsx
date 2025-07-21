@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { MapPin, School, ShoppingCart, Coffee, Car, Train, Plane, Hospital, Star, TrendingUp, Users, DollarSign } from "lucide-react"
+import { MapPin, School, ShoppingCart, Coffee, Car, Train, Plane, Heart, Star, TrendingUp, Users, DollarSign } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 
 interface NeighborhoodData {
@@ -329,7 +329,7 @@ export default function NeighborhoodPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Hospital className="h-5 w-5 mr-2" />
+                  <Heart className="h-5 w-5 mr-2" />
                   Healthcare
                 </CardTitle>
               </CardHeader>

@@ -33,15 +33,11 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase, supabaseHelpers } from '@/lib/supabase'
-import { formatCurrency, formatDate, formatNumber } from '@/lib/utils'
+import { formatCurrency, formatDate, formatNumber, formatRelativeTime } from '@/lib/utils'
 import MortgageCalculator from '@/components/property/mortgage-calculator'
 
 interface PropertyWithImages extends Property {
   property_images: PropertyImage[]
-}
-
-interface SocialPostWithStats extends SocialPost {
-  total_engagement: number
 }
 
 export default function PropertyDetailPage() {
@@ -49,7 +45,7 @@ export default function PropertyDetailPage() {
   const router = useRouter()
   const { user } = useSupabase()
   const [property, setProperty] = useState<PropertyWithImages | null>(null)
-  const [socialPosts, setSocialPosts] = useState<SocialPostWithStats[]>([])
+  const [socialPosts, setSocialPosts] = useState<SocialPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
@@ -64,16 +60,19 @@ export default function PropertyDetailPage() {
   }, [params.id, user])
 
   const fetchPropertyDetails = async () => {
+    if (!user?.id) return
+    
     try {
       setLoading(true)
       setError(null)
       
       // Fetch property details
+      const propertyId = Array.isArray(params.id) ? params.id[0] : params.id
       const { data: propertyData, error: propertyError } = await supabase
         .from('properties')
         .select('*')
-        .eq('id', params.id)
-        .eq('agent_id', user?.id)
+        .eq('id', propertyId)
+        .eq('agent_id', user.id)
         .single()
       
       if (propertyError) {
@@ -86,7 +85,7 @@ export default function PropertyDetailPage() {
       }
       
       // Fetch property images via backend API
-      const { data: imagesData } = await supabaseHelpers.getPropertyImages(params.id as string)
+      const { data: imagesData } = await supabaseHelpers.getPropertyImages(propertyId)
       
       // Combine property data with images
       const propertyWithImages = {
@@ -100,19 +99,13 @@ export default function PropertyDetailPage() {
       const { data: postsData, error: postsError } = await supabase
         .from('social_posts')
         .select('*')
-        .eq('property_id', params.id)
-        .eq('agent_id', user?.id)
+        .eq('property_id', propertyId)
+        .eq('agent_id', user.id)
         .order('created_at', { ascending: false })
       
       if (postsError) throw postsError
       
-      // Calculate engagement for each post
-      const postsWithEngagement = (postsData || []).map(post => ({
-        ...post,
-        total_engagement: (post.likes_count || 0) + (post.comments_count || 0) + (post.shares_count || 0)
-      }))
-      
-      setSocialPosts(postsWithEngagement)
+      setSocialPosts(postsData || [])
       
     } catch (err) {
       console.error('Error fetching property details:', err)
@@ -123,7 +116,7 @@ export default function PropertyDetailPage() {
   }
 
   const handleDeleteProperty = async () => {
-    if (!property) return
+    if (!property || !user?.id) return
     
     if (!confirm('Are you sure you want to delete this property? This action cannot be undone.')) {
       return
@@ -134,7 +127,7 @@ export default function PropertyDetailPage() {
         .from('properties')
         .delete()
         .eq('id', property.id)
-        .eq('agent_id', user?.id)
+        .eq('agent_id', user.id)
       
       if (error) throw error
       
@@ -276,11 +269,11 @@ export default function PropertyDetailPage() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{property.title}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{property.address}</h1>
               <div className="flex items-center space-x-2 mt-1">
                 <MapPin className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-600">
-                  {property.address}, {property.city}, {property.state} {property.zip_code}
+                  {property.address}
                 </span>
               </div>
             </div>
@@ -341,8 +334,8 @@ export default function PropertyDetailPage() {
                     {/* Main Image */}
                     <div className="relative aspect-video bg-gray-100">
                       <Image
-                        src={mainImage?.original_url || '/placeholder-property.svg'}
-                        alt={property.title}
+                        src={mainImage?.storage_path || '/placeholder-property.svg'}
+                        alt={property.address}
                         fill
                         className="object-cover rounded-t-lg cursor-pointer"
                         onClick={() => setShowImageModal(true)}
@@ -373,7 +366,7 @@ export default function PropertyDetailPage() {
                               }`}
                             >
                               <Image
-                                src={image.original_url}
+                                src={image.storage_path}
                                 alt={`Property image ${index + 1}`}
                                 fill
                                 className="object-cover"
@@ -502,57 +495,28 @@ export default function PropertyDetailPage() {
                             </span>
                           </div>
                           <span className="text-sm text-gray-500">
-                            {formatDate(post.created_at, { relative: true })}
+                            {formatRelativeTime(post.created_at)}
                           </span>
                         </div>
                         
                         <p className="text-gray-900 mb-3 whitespace-pre-wrap">
-                          {post.content}
+                          {post.copy_text}
                         </p>
                         
-                        {post.media_urls && post.media_urls.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2 mb-3">
-                            {post.media_urls.slice(0, 3).map((url, index) => (
-                              <div key={index} className="relative aspect-square">
-                                <Image
-                                  src={url}
-                                  alt="Post media"
-                                  fill
-                                  className="object-cover rounded"
-                                />
-                              </div>
-                            ))}
+                        {post.image_path && (
+                          <div className="mb-3">
+                            <div className="relative aspect-square max-w-xs">
+                              <Image
+                                src={post.image_path}
+                                alt="Social media content"
+                                fill
+                                className="object-cover rounded-lg"
+                              />
+                            </div>
                           </div>
                         )}
                         
-                        {(post.views_count || post.total_engagement > 0) && (
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            {post.views_count && (
-                              <div className="flex items-center space-x-1">
-                                <Eye className="h-4 w-4" />
-                                <span>{formatNumber(post.views_count)}</span>
-                              </div>
-                            )}
-                            {post.likes_count && (
-                              <div className="flex items-center space-x-1">
-                                <Heart className="h-4 w-4" />
-                                <span>{formatNumber(post.likes_count)}</span>
-                              </div>
-                            )}
-                            {post.comments_count && (
-                              <div className="flex items-center space-x-1">
-                                <MessageCircle className="h-4 w-4" />
-                                <span>{formatNumber(post.comments_count)}</span>
-                              </div>
-                            )}
-                            {post.shares_count && (
-                              <div className="flex items-center space-x-1">
-                                <Repeat2 className="h-4 w-4" />
-                                <span>{formatNumber(post.shares_count)}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+
                       </div>
                     ))}
                   </div>
@@ -595,14 +559,7 @@ export default function PropertyDetailPage() {
                     </span>
                   </div>
                   
-                  {property.content_generated_at && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Content Generated:</span>
-                      <span className="font-medium">
-                        {formatDate(property.content_generated_at, { relative: true })}
-                      </span>
-                    </div>
-                  )}
+
                 </div>
               </div>
             </div>
@@ -682,19 +639,7 @@ export default function PropertyDetailPage() {
                       </span>
                     </div>
                     
-                    {property.content_generation_progress && (
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Progress</span>
-                          <span>{property.content_generation_progress}%</span>
-                        </div>
-                        <progress 
-                          className="progress progress-primary w-full" 
-                          value={property.content_generation_progress} 
-                          max="100"
-                        ></progress>
-                      </div>
-                    )}
+
                   </div>
                 </div>
               </div>
@@ -721,7 +666,7 @@ export default function PropertyDetailPage() {
               <div className="space-y-4">
                 <div className="relative aspect-video">
                   <Image
-                    src={images[selectedImageIndex]?.original_url || '/placeholder-property.svg'}
+                    src={images[selectedImageIndex]?.storage_path || '/placeholder-property.svg'}
                     alt={`Property image ${selectedImageIndex + 1}`}
                     fill
                     className="object-cover rounded-lg"
@@ -740,7 +685,7 @@ export default function PropertyDetailPage() {
                       }`}
                     >
                       <Image
-                        src={image.original_url}
+                        src={image.storage_path}
                         alt={`Property image ${index + 1}`}
                         fill
                         className="object-cover"

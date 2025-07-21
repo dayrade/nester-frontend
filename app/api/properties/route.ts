@@ -5,12 +5,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
+    
     const response = await fetch(`${backendUrl}/api/properties`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     })
     
@@ -33,14 +49,29 @@ export async function GET(request: NextRequest) {
     const queryString = searchParams.toString()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
     const url = `${backendUrl}/api/properties${queryString ? `?${queryString}` : ''}`
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
     
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     })
     
     const data = await response.json()
@@ -63,14 +94,29 @@ export async function PUT(request: NextRequest) {
     const queryString = searchParams.toString()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
     const url = `${backendUrl}/api/properties${queryString ? `?${queryString}` : ''}`
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
     
     const response = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     })
     
@@ -93,14 +139,29 @@ export async function DELETE(request: NextRequest) {
     const queryString = searchParams.toString()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
     const url = `${backendUrl}/api/properties${queryString ? `?${queryString}` : ''}`
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
     
     const response = await fetch(url, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     })
     
     const data = await response.json()

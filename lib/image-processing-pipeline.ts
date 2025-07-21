@@ -5,7 +5,7 @@
 
 import { imageValidationService, ValidationResult, ValidationOptions } from './image-validation'
 import { imageOptimizationService, OptimizationResult, OptimizationOptions } from './image-optimization'
-import { UploadService } from './upload-service'
+import { uploadService } from './upload-service'
 import { createClient } from '@supabase/supabase-js'
 
 interface ProcessingOptions {
@@ -112,13 +112,13 @@ const DEFAULT_PROCESSING_OPTIONS: Required<ProcessingOptions> = {
 }
 
 class ImageProcessingPipeline {
-  private uploadService: UploadService
+  private uploadService: typeof uploadService
   private cache: ProcessingCache
   private abortController?: AbortController
   private progressCallbacks: Set<(progress: BatchProcessingProgress) => void>
 
   constructor() {
-    this.uploadService = new UploadService()
+    this.uploadService = uploadService
     this.cache = {
       validationResults: new Map(),
       optimizationResults: new Map(),
@@ -238,7 +238,7 @@ class ImageProcessingPipeline {
     startTime: number = performance.now()
   ): Promise<ProcessingResult[]> {
     const results: ProcessingResult[] = new Array(files.length)
-    const semaphore = new Semaphore(options.processing.maxConcurrentUploads)
+    const semaphore = new Semaphore(options.processing.maxConcurrentUploads || 3)
     let completed = 0
     let failed = 0
 
@@ -393,20 +393,24 @@ class ImageProcessingPipeline {
           { type: 'image/jpeg' }
         )
 
+        const imageFile = {
+          id: `${file.name}_${size.suffix}`,
+          file: thumbnailFile,
+          preview: URL.createObjectURL(thumbnailFile),
+          status: 'pending' as const,
+          progress: 0
+        }
+
         const uploadResult = await this.uploadService.uploadPropertyImage(
-          thumbnailFile,
           propertyId || 'temp',
-          {
-            bucket: uploadOptions.bucket,
-            folder: uploadOptions.folder ? `${uploadOptions.folder}/thumbnails` : 'thumbnails',
-            makePublic: uploadOptions.makePublic
-          }
+          'temp-agent',
+          imageFile
         )
 
         thumbnails.push({
           size: `${size.width}x${size.height}`,
-          url: uploadResult.url,
-          path: uploadResult.path
+          url: uploadResult.url || '',
+          path: uploadResult.imageId || ''
         })
       } catch (error) {
         console.warn(`Failed to generate ${size.suffix} thumbnail:`, error)
@@ -456,14 +460,18 @@ class ImageProcessingPipeline {
     options: Required<ProcessingOptions>['upload'], 
     propertyId?: string
   ): Promise<any> {
+    const imageFile = {
+      id: `${file.name}_${Date.now()}`,
+      file: file,
+      preview: URL.createObjectURL(file),
+      status: 'pending' as const,
+      progress: 0
+    }
+
     return await this.uploadService.uploadPropertyImage(
-      file,
       propertyId || 'temp',
-      {
-        bucket: options.bucket,
-        folder: options.folder,
-        makePublic: options.makePublic
-      }
+      'temp-agent',
+      imageFile
     )
   }
 
@@ -480,7 +488,7 @@ class ImageProcessingPipeline {
     if (metadata.fileSize > 2 * 1024 * 1024) return true // 2MB
     
     // Optimize if dimensions are too large
-    if (metadata.width > optimization.maxWidth || metadata.height > optimization.maxHeight) return true
+    if ((optimization.maxWidth && metadata.width > optimization.maxWidth) || (optimization.maxHeight && metadata.height > optimization.maxHeight)) return true
     
     // Optimize if format conversion would be beneficial
     if (optimization.format === 'auto' || optimization.format !== this.getFormatFromMimeType(metadata.mimeType)) return true

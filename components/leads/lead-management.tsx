@@ -60,7 +60,7 @@ interface Lead {
   tags: string[]
 }
 
-interface Activity {
+export interface Activity {
   id: string
   leadId: string
   type: 'call' | 'email' | 'meeting' | 'note' | 'property-view' | 'proposal-sent'

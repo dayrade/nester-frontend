@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { isValidUrl, formatFileSize } from '@/lib/utils'
+import { EnhancedImageUpload, ImageFile } from './enhanced-image-upload'
 
 interface PropertyFormProps {
   property?: Property & { property_images?: PropertyImage[] }
@@ -44,7 +45,7 @@ export interface PropertyFormData {
   lot_size: number | null
   year_built: number | null
   listing_url?: string
-  images: File[]
+  images: ImageFile[]
   existingImages?: PropertyImage[]
 }
 
@@ -73,18 +74,17 @@ export default function PropertyForm({
   submitLabel = 'Save Property'
 }: PropertyFormProps) {
   const { user } = useSupabase()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState<PropertyFormData>({
-    title: property?.title || '',
+    title: property?.address || '',
     description: property?.description || '',
     address: property?.address || '',
-    city: property?.city || '',
-    state: property?.state || '',
-    zip_code: property?.zip_code || '',
+    city: '',
+    state: '',
+    zip_code: '',
     price: property?.price || null,
-    property_type: property?.property_type || 'house',
-    listing_status: property?.listing_status || 'for_sale',
+    property_type: (property?.property_type as 'house' | 'condo' | 'townhouse' | 'apartment' | 'land' | 'commercial') || 'house',
+    listing_status: (property?.listing_status as 'for_sale' | 'for_rent' | 'sold' | 'rented' | 'off_market') || 'for_sale',
     bedrooms: property?.bedrooms || null,
     bathrooms: property?.bathrooms || null,
     square_feet: property?.square_feet || null,
@@ -96,7 +96,6 @@ export default function PropertyForm({
   })
   
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [dragActive, setDragActive] = useState(false)
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -141,6 +140,12 @@ export default function PropertyForm({
       newErrors.year_built = 'Please enter a valid year'
     }
     
+    // Validate that all images have room types selected
+    const imagesWithoutRoomType = formData.images.filter(img => !img.roomType)
+    if (imagesWithoutRoomType.length > 0) {
+      newErrors.images = 'Please select a room type for all uploaded images'
+    }
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -164,53 +169,25 @@ export default function PropertyForm({
     }
   }
 
-  const handleImageUpload = (files: FileList | null) => {
-    if (!files) return
-    
-    const validFiles = Array.from(files).filter(file => {
-      const isImage = file.type.startsWith('image/')
-      const isValidSize = file.size <= 10 * 1024 * 1024 // 10MB
-      return isImage && isValidSize
-    })
-    
+  const handleImagesChange = (newImages: ImageFile[]) => {
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, ...validFiles]
+      images: newImages
     }))
+    
+    // Clear images error when user updates images
+    if (errors.images) {
+      setErrors(prev => ({ ...prev, images: '' }))
+    }
   }
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }))
-  }
+
 
   const removeExistingImage = (imageId: string) => {
     setFormData(prev => ({
       ...prev,
       existingImages: prev.existingImages?.filter(img => img.id !== imageId)
     }))
-  }
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
-    if (e.dataTransfer.files) {
-      handleImageUpload(e.dataTransfer.files)
-    }
   }
 
   return (
@@ -502,7 +479,7 @@ export default function PropertyForm({
                 {formData.existingImages.map((image) => (
                   <div key={image.id} className="relative group">
                     <Image
-                      src={image.original_url}
+                      src={image.storage_path}
                       alt="Property"
                       width={200}
                       height={150}
@@ -515,9 +492,9 @@ export default function PropertyForm({
                     >
                       <X className="h-3 w-3" />
                     </button>
-                    {image.is_primary && (
+                    {image.is_hero && (
                       <div className="absolute bottom-2 left-2 badge badge-primary badge-sm">
-                        Primary
+                        Hero
                       </div>
                     )}
                   </div>
@@ -526,68 +503,13 @@ export default function PropertyForm({
             </div>
           )}
           
-          {/* Upload Area */}
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">
-              Drop images here or click to upload
-            </p>
-            <p className="text-sm text-gray-500 mb-4">
-              Support: JPG, PNG, WebP up to 10MB each
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e.target.files)}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn btn-outline"
-            >
-              Choose Files
-            </button>
-          </div>
+          <EnhancedImageUpload
+            images={formData.images}
+            onImagesChange={handleImagesChange}
+          />
           
-          {/* New Images Preview */}
-          {formData.images.length > 0 && (
-            <div className="mt-4">
-              <h4 className="font-medium mb-2">New Images ({formData.images.length})</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {formData.images.map((file, index) => (
-                  <div key={index} className="relative group">
-                    <Image
-                      src={URL.createObjectURL(file)}
-                      alt="Preview"
-                      width={200}
-                      height={150}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 btn btn-sm btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                    <div className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-1 rounded">
-                      {formatFileSize(file.size)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {errors.images && (
+            <div className="text-error text-sm mt-2">{errors.images}</div>
           )}
         </div>
       </div>

@@ -338,7 +338,7 @@ export default function SocialPage() {
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      {getPlatformIcon(post.platform)}
+                      {getPlatformIcon(post.platform || 'unknown')}
                       <div>
                         <h3 className="font-semibold text-gray-900 capitalize">
                           {post.platform}
@@ -368,14 +368,7 @@ export default function SocialPage() {
                               </button>
                             </li>
                           )}
-                          {post.post_url && (
-                            <li>
-                              <a href={post.post_url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                                View Post
-                              </a>
-                            </li>
-                          )}
+
                           <li>
                             <button 
                               onClick={() => handlePostAction(post.id, 'delete')}
@@ -399,10 +392,10 @@ export default function SocialPage() {
                         href={`/property/${post.properties.id}`}
                         className="text-sm font-medium text-primary hover:underline"
                       >
-                        {post.properties.title}
+                        {post.properties.address}
                       </Link>
                       <p className="text-xs text-gray-600">
-                        {post.properties.address}, {post.properties.city}, {post.properties.state}
+                        {post.properties.property_type}
                       </p>
                     </div>
                   )}
@@ -410,70 +403,31 @@ export default function SocialPage() {
                   {/* Content */}
                   <div className="mb-4">
                     <p className="text-gray-900 whitespace-pre-wrap line-clamp-4">
-                      {post.content}
+                      {post.copy_text}
                     </p>
                   </div>
                   
                   {/* Media */}
-                  {post.media_urls && post.media_urls.length > 0 && (
+                  {post.image_path && (
                     <div className="mb-4">
-                      <div className="grid grid-cols-2 gap-2">
-                        {post.media_urls.slice(0, 4).map((url, index) => (
-                          <div key={index} className="relative aspect-square">
-                            <Image
-                              src={url}
-                              alt="Post media"
-                              fill
-                              className="object-cover rounded-lg"
-                            />
-                            {post.media_urls!.length > 4 && index === 3 && (
-                              <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-medium">
-                                  +{post.media_urls!.length - 4}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                      <div className="relative aspect-square">
+                        <Image
+                          src={post.image_path}
+                          alt="Post media"
+                          fill
+                          className="object-cover rounded-lg"
+                        />
                       </div>
                     </div>
                   )}
                   
-                  {/* Engagement Stats */}
-                  {(post.likes_count || post.comments_count || post.shares_count || post.views_count) && (
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 pt-3 border-t">
-                      {post.views_count && (
-                        <div className="flex items-center space-x-1">
-                          <Eye className="h-4 w-4" />
-                          <span>{formatNumber(post.views_count)}</span>
-                        </div>
-                      )}
-                      {post.likes_count && (
-                        <div className="flex items-center space-x-1">
-                          <Heart className="h-4 w-4" />
-                          <span>{formatNumber(post.likes_count)}</span>
-                        </div>
-                      )}
-                      {post.comments_count && (
-                        <div className="flex items-center space-x-1">
-                          <MessageCircle className="h-4 w-4" />
-                          <span>{formatNumber(post.comments_count)}</span>
-                        </div>
-                      )}
-                      {post.shares_count && (
-                        <div className="flex items-center space-x-1">
-                          <Repeat2 className="h-4 w-4" />
-                          <span>{formatNumber(post.shares_count)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+
                   
                   {/* Scheduled Time */}
-                  {post.scheduled_for && post.status === 'scheduled' && (
+                  {post.scheduled_time && post.status === 'scheduled' && (
                     <div className="text-sm text-gray-600 pt-2">
                       <Calendar className="h-4 w-4 inline mr-1" />
-                      Scheduled for {formatDate(post.scheduled_for, { 
+                      Scheduled for {formatDate(post.scheduled_time, { 
                         month: 'short', 
                         day: 'numeric', 
                         hour: 'numeric', 

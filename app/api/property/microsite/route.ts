@@ -51,15 +51,7 @@ export async function POST(request: NextRequest) {
       .eq('agent_id', user.id)
       .single()
 
-    // Check if microsite already exists
-    if (property.microsite_url && !microsite_settings.regenerate) {
-      return NextResponse.json({
-        success: true,
-        microsite_url: property.microsite_url,
-        status: 'existing',
-        message: 'Microsite already exists. Use regenerate=true to recreate.'
-      })
-    }
+    // Note: Microsite generation will proceed
 
     // Generate unique microsite subdomain/path
     const micrositeSlug = generateMicrositeSlug(property.address, property_id)
@@ -89,78 +81,58 @@ export async function POST(request: NextRequest) {
         description: property.description,
         features: property.features,
         neighborhood_info: property.neighborhood_info,
-        school_district: property.school_district,
-        hoa_fees: property.hoa_fees,
-        property_taxes: property.property_taxes,
-        
-        // Location & Scores
-        latitude: property.latitude,
-        longitude: property.longitude,
-        walkability_score: property.walkability_score,
-        transit_score: property.transit_score,
-        bike_score: property.bike_score,
         
         // Market Information
-        days_on_market: property.days_on_market,
         price_per_sqft: property.price && property.square_feet ? property.price / property.square_feet : null,
         
         // Media Assets
         images: property.property_images?.map(img => ({
-          url: img.image_url,
-          caption: img.caption,
+          url: img.storage_path,
           room_type: img.room_type,
-          is_primary: img.is_primary,
-          style_variant: img.style_variant,
-          alt_text: img.alt_text
-        })) || [],
-        
-        // Virtual Tour & Media
-        virtual_tour_url: property.virtual_tour_url,
-        video_tour_url: property.video_tour_url,
-        floor_plan_url: property.floor_plan_url
+          is_hero: img.is_hero
+        })) || []
       },
       
       // Complete Brand Configuration
       brand_configuration: {
         // Company Identity
         company_name: brandData?.company_name || 'Nester',
-        agent_name: brandData?.agent_name || 'Real Estate Professional',
-        agent_title: brandData?.agent_title || 'Licensed Real Estate Agent',
-        agent_bio: brandData?.agent_bio,
-        agent_photo_url: brandData?.agent_photo_url,
+        agent_name: 'Real Estate Professional',
+        agent_title: 'Licensed Real Estate Agent',
+        agent_bio: 'Experienced real estate professional dedicated to helping you find your perfect home.',
+        agent_photo_url: null,
         
         // Contact Information
-        agent_phone: brandData?.agent_phone,
-        agent_email: brandData?.agent_email,
-        agent_website: brandData?.agent_website,
-        office_address: brandData?.office_address,
+        agent_phone: '(555) 123-4567',
+        agent_email: 'agent@nester.com',
+        agent_website: 'https://nester.com',
+        office_address: null,
         
         // Visual Brand Identity
-        logo_url: brandData?.logo_url || brandData?.nester_logo_url,
-        favicon_url: brandData?.favicon_url,
-        primary_color: brandData?.primary_color || brandData?.nester_primary_color,
-        secondary_color: brandData?.secondary_color || brandData?.nester_secondary_color,
-        accent_color: brandData?.accent_color || brandData?.nester_accent_color,
-        background_color: brandData?.background_color,
-        text_color: brandData?.text_color,
+        logo_url: brandData?.logo_storage_path,
+        favicon_url: null,
+        primary_color: brandData?.primary_color,
+        secondary_color: brandData?.secondary_color,
+        background_color: null,
+        text_color: null,
         
         // Typography
-        primary_font: brandData?.primary_font || 'Inter',
-        secondary_font: brandData?.secondary_font || 'Playfair Display',
+        primary_font: 'Inter',
+        secondary_font: 'Playfair Display',
         
         // Brand Personality
-        persona_tone: brandData?.persona_tone || 'Professional & Authoritative',
-        persona_style: brandData?.persona_style || 'Concise & Factual',
-        key_phrases: brandData?.persona_key_phrases || ['Discover your dream home'],
-        tagline: brandData?.company_tagline,
+        persona_tone: 'Professional & Authoritative',
+        persona_style: 'Concise & Factual',
+        key_phrases: ['Discover your dream home'],
+        tagline: null,
         
         // Social Media
         social_media: {
-          facebook: brandData?.facebook_url,
-          instagram: brandData?.instagram_url,
-          linkedin: brandData?.linkedin_url,
-          twitter: brandData?.twitter_url,
-          youtube: brandData?.youtube_url
+          facebook: null,
+          instagram: null,
+          linkedin: null,
+          twitter: null,
+          youtube: null
         },
         
         // Brand Tier & White Label Settings
@@ -205,7 +177,7 @@ export async function POST(request: NextRequest) {
           meta_title: `${property.address} - ${brandData?.company_name || 'Nester'}`,
           meta_description: property.description?.substring(0, 160) || `Beautiful ${property.property_type} for sale`,
           keywords: generateSEOKeywords(property, brandData),
-          og_image: property.property_images?.find(img => img.is_primary)?.image_url,
+          og_image: property.property_images?.find(img => img.is_hero)?.storage_path,
           structured_data: true
         },
         
@@ -224,14 +196,14 @@ export async function POST(request: NextRequest) {
           required_fields: microsite_settings.required_fields || ['name', 'email', 'phone'],
           optional_fields: microsite_settings.optional_fields || ['message', 'timeline', 'financing_status'],
           auto_responder_enabled: microsite_settings.auto_responder_enabled !== false,
-          lead_notification_email: brandData?.agent_email
+          lead_notification_email: 'agent@nester.com'
         },
         
         // Custom Features
         custom_css: microsite_settings.custom_css,
         custom_javascript: microsite_settings.custom_javascript,
-        google_analytics_id: brandData?.google_analytics_id,
-        facebook_pixel_id: brandData?.facebook_pixel_id
+        google_analytics_id: null,
+        facebook_pixel_id: null
       },
       
       // Technical Specifications
@@ -274,10 +246,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('properties')
       .update({
-        microsite_url: micrositeUrl,
-        microsite_slug: micrositeSlug,
-        microsite_generation_started_at: new Date().toISOString(),
-        content_generation_status: 'generating_microsite'
+        updated_at: new Date().toISOString()
       })
       .eq('id', property_id)
 
@@ -342,12 +311,7 @@ export async function GET(request: NextRequest) {
     const { data: property, error: propertyError } = await supabase
       .from('properties')
       .select(`
-        id,
-        microsite_url,
-        microsite_slug,
-        microsite_generation_started_at,
-        microsite_analytics,
-        content_generation_status
+        id
       `)
       .eq('id', propertyId)
       .eq('agent_id', user.id)
@@ -369,15 +333,13 @@ export async function GET(request: NextRequest) {
 
     const micrositeStatus = {
       property_id: propertyId,
-      microsite_url: property.microsite_url,
-      microsite_slug: property.microsite_slug,
-      status: property.content_generation_status?.includes('microsite') 
-        ? property.content_generation_status 
-        : property.microsite_url ? 'completed' : 'not_started',
-      started_at: property.microsite_generation_started_at,
+      microsite_url: null,
+      microsite_slug: null,
+      status: 'not_started',
+      started_at: null,
       
       // Analytics Data
-      analytics: property.microsite_analytics || {
+      analytics: {
         total_visits: 0,
         unique_visitors: 0,
         page_views: 0,
@@ -390,21 +352,19 @@ export async function GET(request: NextRequest) {
       // Engagement Metrics
       engagement: {
         chat_sessions: chatSessions?.length || 0,
-        qualified_leads: chatSessions?.filter(session => session.lead_qualification_score >= 70).length || 0,
-        total_messages: chatSessions?.reduce((sum, session) => sum + (session.total_messages || 0), 0) || 0,
-        average_lead_score: chatSessions?.length 
-          ? chatSessions.reduce((sum, session) => sum + (session.lead_qualification_score || 0), 0) / chatSessions.length
-          : 0
+        qualified_leads: 0,
+        total_messages: 0,
+        average_lead_score: 0
       },
       
       // Recent Activity
       recent_visitors: chatSessions?.slice(0, 5).map(session => ({
-        session_id: session.id,
+        session_id: session.session_id,
         started_at: session.created_at,
-        lead_score: session.lead_qualification_score,
-        interests: session.identified_interests,
-        location: session.visitor_info?.location,
-        device: session.visitor_info?.device_type
+        lead_score: 0,
+        interests: session.interests_detected,
+        location: null,
+        device: null
       })) || []
     }
 

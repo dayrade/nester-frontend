@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSupabase } from '@/lib/providers/supabase-provider'
-import EnhancedPropertyForm, { PropertyFormData } from '@/components/property/enhanced-property-form'
+import EnhancedPropertyForm from '@/components/property/enhanced-property-form'
+import type { PropertyData } from '@/components/property/enhanced-property-form'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -16,7 +17,7 @@ export default function TestPropertyFormPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const handleSubmit = async (formData: PropertyFormData) => {
+  const handleSubmit = async (formData: PropertyData) => {
     if (!user) {
       setError('You must be logged in to create a property')
       return
@@ -92,8 +93,6 @@ export default function TestPropertyFormPage() {
             <div className="card-body">
               <EnhancedPropertyForm
                 onSubmit={handleSubmit}
-                isLoading={isLoading}
-                submitLabel="Create Property with Images"
               />
             </div>
           </div>

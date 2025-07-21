@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useBrand } from '@/lib/providers/brand-provider'
 import { AlertTriangle, ArrowLeft, Home, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { brandAssets } = useBrand()
@@ -185,5 +185,13 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center"><div className="loading loading-spinner loading-lg"></div></div>}>
+      <AuthErrorContent />
+    </Suspense>
   )
 }

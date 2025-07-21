@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Upload, X, AlertCircle, CheckCircle, Loader2, Image as ImageIcon, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import { formatFileSize } from '@/lib/utils'
+import RoomTypeSelector from './room-type-selector'
 
 interface ImageFile {
   file: File
@@ -12,6 +13,7 @@ interface ImageFile {
   status: 'pending' | 'uploading' | 'success' | 'error'
   progress: number
   error?: string
+  roomType?: string
 }
 
 interface EnhancedImageUploadProps {
@@ -27,7 +29,7 @@ const DEFAULT_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/
 const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const DEFAULT_MAX_FILES = 20
 
-export default function EnhancedImageUpload({
+function EnhancedImageUpload({
   images,
   onImagesChange,
   maxFiles = DEFAULT_MAX_FILES,
@@ -194,6 +196,13 @@ export default function EnhancedImageUpload({
     onImagesChange(newImages)
   }, [images, onImagesChange])
 
+  const updateImageRoomType = useCallback((id: string, roomType: string) => {
+    const updatedImages = images.map(img => 
+      img.id === id ? { ...img, roomType } : img
+    )
+    onImagesChange(updatedImages)
+  }, [images, onImagesChange])
+
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Validation Errors */}
@@ -265,85 +274,104 @@ export default function EnhancedImageUpload({
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {images.map((image, index) => (
-              <div key={image.id} className="relative group">
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                  <Image
-                    src={image.preview}
-                    alt="Preview"
-                    fill
-                    className="object-cover"
-                  />
-                  
-                  {/* Status Overlay */}
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div key={image.id} className="space-y-3">
+                <div className="relative group">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                    <Image
+                      src={image.preview}
+                      alt="Preview"
+                      fill
+                      className="object-cover"
+                    />
+                    
+                    {/* Status Overlay */}
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      {image.status === 'uploading' && (
+                        <div className="text-white text-center">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                          <div className="text-xs">{image.progress}%</div>
+                        </div>
+                      )}
+                      {image.status === 'success' && (
+                        <CheckCircle className="h-8 w-8 text-green-400" />
+                      )}
+                      {image.status === 'error' && (
+                        <div className="text-white text-center">
+                          <AlertCircle className="h-6 w-6 text-red-400 mx-auto mb-2" />
+                          <div className="text-xs">Failed</div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Progress Bar */}
                     {image.status === 'uploading' && (
-                      <div className="text-white text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        <div className="text-xs">{image.progress}%</div>
-                      </div>
-                    )}
-                    {image.status === 'success' && (
-                      <CheckCircle className="h-8 w-8 text-green-400" />
-                    )}
-                    {image.status === 'error' && (
-                      <div className="text-white text-center">
-                        <AlertCircle className="h-6 w-6 text-red-400 mx-auto mb-2" />
-                        <div className="text-xs">Failed</div>
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+                        <div 
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${image.progress}%` }}
+                        />
                       </div>
                     )}
                   </div>
                   
-                  {/* Progress Bar */}
-                  {image.status === 'uploading' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
-                      <div 
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${image.progress}%` }}
-                      />
+                  {/* Controls */}
+                  <div className="absolute top-2 right-2 flex space-x-1">
+                    {image.status === 'error' && (
+                      <button
+                        type="button"
+                        onClick={() => retryUpload(image.id)}
+                        className="btn btn-sm btn-circle bg-yellow-500 hover:bg-yellow-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Retry upload"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeImage(image.id)}
+                      className="btn btn-sm btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  
+                  {/* Image Info */}
+                  <div className="absolute bottom-2 left-2 text-xs bg-black/70 text-white px-2 py-1 rounded">
+                    {formatFileSize(image.file.size)}
+                  </div>
+                  
+                  {/* Primary Badge */}
+                  {index === 0 && (
+                    <div className="absolute top-2 left-2 badge badge-primary badge-sm">
+                      Primary
+                    </div>
+                  )}
+                  
+                  {/* Error Message */}
+                  {image.error && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-xs p-1 rounded-b-lg">
+                      {image.error}
                     </div>
                   )}
                 </div>
                 
-                {/* Controls */}
-                <div className="absolute top-2 right-2 flex space-x-1">
-                  {image.status === 'error' && (
-                    <button
-                      type="button"
-                      onClick={() => retryUpload(image.id)}
-                      className="btn btn-sm btn-circle bg-yellow-500 hover:bg-yellow-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Retry upload"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeImage(image.id)}
-                    className="btn btn-sm btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove image"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
+                {/* Room Type Selector */}
+                <RoomTypeSelector
+                  value={image.roomType}
+                  onChange={(roomType) => updateImageRoomType(image.id, roomType)}
+                  required
+                  placeholder="Select room type..."
+                  className="w-full"
+                />
                 
-                {/* Image Info */}
-                <div className="absolute bottom-2 left-2 text-xs bg-black/70 text-white px-2 py-1 rounded">
-                  {formatFileSize(image.file.size)}
-                </div>
-                
-                {/* Primary Badge */}
-                {index === 0 && (
-                  <div className="absolute top-2 left-2 badge badge-primary badge-sm">
-                    Primary
-                  </div>
-                )}
-                
-                {/* Error Message */}
-                {image.error && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-xs p-1 rounded-b-lg">
-                    {image.error}
+                {/* Room Type Validation */}
+                {!image.roomType && (
+                  <div className="text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Room type is required
                   </div>
                 )}
               </div>
@@ -354,6 +382,9 @@ export default function EnhancedImageUpload({
     </div>
   )
 }
+
+// Export the component as named export only
+export { EnhancedImageUpload }
 
 // Export types for use in other components
 export type { ImageFile, EnhancedImageUploadProps }

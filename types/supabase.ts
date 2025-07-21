@@ -15,18 +15,54 @@ export interface Database {
           email: string
           role: string
           created_at: string
+          updated_at?: string
+          full_name?: string
+          phone?: string
+          bio?: string
+          website?: string
+          license_number?: string
+          brokerage?: string
+          avatar_url?: string
+          location?: string
+          years_experience?: number
+          specialties?: string[]
+          timezone?: string
         }
         Insert: {
           id?: string
           email: string
           role?: string
           created_at?: string
+          updated_at?: string
+          full_name?: string
+          phone?: string
+          bio?: string
+          website?: string
+          license_number?: string
+          brokerage?: string
+          avatar_url?: string
+          location?: string
+          years_experience?: number
+          specialties?: string[]
+          timezone?: string
         }
         Update: {
           id?: string
           email?: string
           role?: string
           created_at?: string
+          updated_at?: string
+          full_name?: string
+          phone?: string
+          bio?: string
+          website?: string
+          license_number?: string
+          brokerage?: string
+          avatar_url?: string
+          location?: string
+          years_experience?: number
+          specialties?: string[]
+          timezone?: string
         }
         Relationships: []
       }

@@ -43,8 +43,8 @@ export default function PropertyCard({
   const [imageError, setImageError] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const primaryImage = property.property_images?.find(img => img.is_primary) || property.property_images?.[0]
-  const imageUrl = primaryImage?.original_url || '/placeholder-property.jpg'
+  const primaryImage = property.property_images?.find(img => img.is_hero) || property.property_images?.[0]
+  const imageUrl = primaryImage?.storage_path || '/placeholder-property.jpg'
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}/property/${property.id}`
@@ -54,7 +54,7 @@ export default function PropertyCard({
   }
 
   const getStatusBadge = () => {
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       'for_sale': 'badge-success',
       'for_rent': 'badge-info',
       'sold': 'badge-neutral',
@@ -62,7 +62,7 @@ export default function PropertyCard({
       'off_market': 'badge-warning'
     }
 
-    const statusLabels = {
+    const statusLabels: Record<string, string> = {
       'for_sale': 'For Sale',
       'for_rent': 'For Rent',
       'sold': 'Sold',
@@ -71,8 +71,8 @@ export default function PropertyCard({
     }
 
     return (
-      <span className={`badge badge-sm ${statusColors[property.listing_status]}`}>
-        {statusLabels[property.listing_status]}
+      <span className={`badge badge-sm ${statusColors[property.listing_status] || 'badge-neutral'}`}>
+        {statusLabels[property.listing_status] || property.listing_status}
       </span>
     )
   }
@@ -80,14 +80,14 @@ export default function PropertyCard({
   const getContentGenerationStatus = () => {
     if (!property.content_generation_status) return null
 
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       'pending': 'badge-warning',
       'processing': 'badge-info',
       'completed': 'badge-success',
       'failed': 'badge-error'
     }
 
-    const statusLabels = {
+    const statusLabels: Record<string, string> = {
       'pending': 'Content Pending',
       'processing': 'Generating Content',
       'completed': 'Content Ready',
@@ -95,8 +95,8 @@ export default function PropertyCard({
     }
 
     return (
-      <span className={`badge badge-xs ${statusColors[property.content_generation_status]}`}>
-        {statusLabels[property.content_generation_status]}
+      <span className={`badge badge-xs ${statusColors[property.content_generation_status] || 'badge-neutral'}`}>
+        {statusLabels[property.content_generation_status] || property.content_generation_status}
       </span>
     )
   }
@@ -107,7 +107,7 @@ export default function PropertyCard({
       <figure className="relative aspect-video">
         <Image
           src={imageError ? '/placeholder-property.jpg' : imageUrl}
-          alt={property.title || 'Property'}
+          alt={property.address || 'Property'}
           fill
           className="object-cover"
           onError={() => setImageError(true)}
@@ -231,7 +231,7 @@ export default function PropertyCard({
               </div>
             )}
             <h3 className="font-semibold text-gray-900 line-clamp-2">
-              {property.title || 'Untitled Property'}
+              {property.address || 'Untitled Property'}
             </h3>
           </div>
         </div>
@@ -280,12 +280,7 @@ export default function PropertyCard({
             <span>Added {formatDate(property.created_at)}</span>
           </div>
           
-          {property.social_posts_count && property.social_posts_count > 0 && (
-            <div className="flex items-center text-xs text-gray-500">
-              <Share2 className="h-3 w-3 mr-1" />
-              <span>{property.social_posts_count} posts</span>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

@@ -8,12 +8,28 @@ export async function GET(
     const propertyId = params.id
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
+    
     const response = await fetch(`${backendUrl}/api/properties/${propertyId}/images`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     })
     
     const data = await response.json()
@@ -39,9 +55,26 @@ export async function POST(
     const formData = await request.formData()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {}
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
+    
     const response = await fetch(`${backendUrl}/api/properties/${propertyId}/images`, {
       method: 'POST',
+      headers,
       body: formData, // Forward the FormData directly
     })
     

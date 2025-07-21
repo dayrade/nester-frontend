@@ -449,7 +449,7 @@ export function ContentGenerator({
                             <Switch
                               id="hashtags"
                               checked={generationOptions.includeHashtags}
-                              onCheckedChange={(checked) => setGenerationOptions({ ...generationOptions, includeHashtags: checked })}
+                              onCheckedChange={(checked: boolean) => setGenerationOptions({ ...generationOptions, includeHashtags: checked })}
                             />
                           </div>
                           
@@ -458,7 +458,7 @@ export function ContentGenerator({
                             <Switch
                               id="emojis"
                               checked={generationOptions.includeEmojis}
-                              onCheckedChange={(checked) => setGenerationOptions({ ...generationOptions, includeEmojis: checked })}
+                              onCheckedChange={(checked: boolean) => setGenerationOptions({ ...generationOptions, includeEmojis: checked })}
                             />
                           </div>
                           
@@ -467,7 +467,7 @@ export function ContentGenerator({
                             <Switch
                               id="cta"
                               checked={generationOptions.callToAction}
-                              onCheckedChange={(checked) => setGenerationOptions({ ...generationOptions, callToAction: checked })}
+                              onCheckedChange={(checked: boolean) => setGenerationOptions({ ...generationOptions, callToAction: checked })}
                             />
                           </div>
                         </div>

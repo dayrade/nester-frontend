@@ -50,7 +50,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface Campaign {
+export interface Campaign {
   id: string
   name: string
   description: string

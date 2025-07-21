@@ -75,8 +75,7 @@ export async function POST(request: NextRequest) {
       images: property.property_images.map(img => ({
         id: img.id,
         storage_path: img.storage_path,
-        alt_text: img.alt_text,
-        is_primary: img.is_primary
+        is_hero: img.is_hero
       })),
       styles: [
         'contemporary',
@@ -114,8 +113,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('properties')
       .update({
-        content_generation_status: 'processing_images',
-        content_generation_started_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
       .eq('id', property_id)
 
@@ -171,8 +169,6 @@ export async function GET(request: NextRequest) {
       .from('properties')
       .select(`
         id,
-        content_generation_status,
-        content_generation_started_at,
         property_images(*)
       `)
       .eq('id', propertyId)
@@ -208,8 +204,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       property_id: propertyId,
-      status: property.content_generation_status || 'not_started',
-      started_at: property.content_generation_started_at,
+      status: 'not_started',
+      started_at: null,
       original_images: originalImages,
       generated_images: totalGenerated,
       images_by_style: imagesByStyle,

@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useBrand } from '@/lib/providers/brand-provider'
 import { CheckCircle, Mail, ArrowRight, Home } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default function SignupSuccessPage() {
+function SignupSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { brandAssets } = useBrand()
@@ -140,5 +140,13 @@ export default function SignupSuccessPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignupSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center"><div className="loading loading-spinner loading-lg"></div></div>}>
+      <SignupSuccessContent />
+    </Suspense>
   )
 }

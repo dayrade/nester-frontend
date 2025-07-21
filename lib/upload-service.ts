@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/supabase'
 import { ImageFile } from '@/components/property/enhanced-image-upload'
 
@@ -24,7 +24,10 @@ interface UploadOptions {
 }
 
 class UploadService {
-  private supabase = createClientComponentClient<Database>()
+  private supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   private activeUploads = new Map<string, AbortController>()
 
   /**
@@ -239,14 +242,8 @@ class UploadService {
         .from('property_images')
         .insert({
           property_id: propertyId,
-          agent_id: agentId,
-          image_url: urlData.publicUrl,
           storage_path: fileName,
-          original_filename: imageFile.file.name,
-          file_size: imageFile.size,
-          mime_type: imageFile.file.type,
-          is_primary: false, // Will be set separately
-          display_order: 0 // Will be updated based on position
+          is_hero: false // Default to false
         })
         .select('*')
         .single()
@@ -312,9 +309,10 @@ class UploadService {
   async updateImageMetadata(
     imageId: string,
     updates: {
-      is_primary?: boolean
-      display_order?: number
-      alt_text?: string
+      room_type?: string | null
+      style?: string | null
+      aspect_ratio?: string | null
+      is_hero?: boolean
     }
   ): Promise<boolean> {
     try {

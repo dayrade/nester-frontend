@@ -8,12 +8,28 @@ export async function DELETE(
     const { id: propertyId, imageId } = params
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    
+    // Forward authentication headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Forward authorization header if present
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    
+    // Forward cookies if present
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader
+    }
+    
     const response = await fetch(`${backendUrl}/api/properties/${propertyId}/images/${imageId}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     })
     
     const data = await response.json()

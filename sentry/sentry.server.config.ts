@@ -9,13 +9,7 @@ Sentry.init({
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: process.env.NODE_ENV === 'development',
   
-  // Capture unhandled promise rejections
-  captureUnhandledRejections: true,
-  
-  // Server-specific integrations
-  integrations: [
-    new Sentry.Integrations.Http({ tracing: true }),
-  ],
+  // Basic integrations will be automatically included
   
   // Performance monitoring
   beforeSend(event, hint) {

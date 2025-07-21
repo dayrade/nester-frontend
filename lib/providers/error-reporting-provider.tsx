@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, ReactNode } from 'react'
 import { useSupabase } from './supabase-provider'
-import { errorReporter, setUser, clearUser, addBreadcrumb } from '../error-reporting'
+import { errorReporter, setUser, clearUser, addBreadcrumb, ErrorSeverity, ErrorCategory } from '../error-reporting'
 
 interface ErrorReportingContextType {
   reportError: typeof errorReporter.reportError
@@ -28,7 +28,6 @@ export function ErrorReportingProvider({ children }: ErrorReportingProviderProps
     if (user) {
       setUser(user.id, user.email, {
         created_at: user.created_at,
-        last_sign_in_at: user.last_sign_in_at,
       })
       
       // Add breadcrumb for user session
@@ -140,8 +139,8 @@ export function useAPITracking() {
     (endpoint: string, method: string, error: Error, status?: number) => {
       reportError(
         error,
-        status && status >= 500 ? 'high' : 'medium',
-        'api',
+        status && status >= 500 ? ErrorSeverity.HIGH : ErrorSeverity.MEDIUM,
+        ErrorCategory.API,
         {
           component: 'API',
           action: 'api_call',

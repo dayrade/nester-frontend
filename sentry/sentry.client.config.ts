@@ -9,26 +9,7 @@ Sentry.init({
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: process.env.NODE_ENV === 'development',
   
-  // Capture unhandled promise rejections
-  captureUnhandledRejections: true,
-  
-  // Capture console errors
-  integrations: [
-    new Sentry.BrowserTracing({
-      // Set sampling rate for performance monitoring
-      tracePropagationTargets: [
-        'localhost',
-        /^https:\/\/yourserver\//,
-        /^\//,
-      ],
-    }),
-    new Sentry.Replay({
-      // Capture 10% of all sessions,
-      // plus 100% of sessions with an error
-      sessionSampleRate: 0.1,
-      errorSampleRate: 1.0,
-    }),
-  ],
+  // Basic integrations will be automatically included
   
   // Performance monitoring
   beforeSend(event, hint) {

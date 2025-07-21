@@ -291,7 +291,7 @@ export function NotificationCenter({
                   <Switch
                     id="email-notifications"
                     checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => updateSetting('emailNotifications', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('emailNotifications', checked)}
                   />
                 </div>
                 
@@ -303,7 +303,7 @@ export function NotificationCenter({
                   <Switch
                     id="push-notifications"
                     checked={settings.pushNotifications}
-                    onCheckedChange={(checked) => updateSetting('pushNotifications', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('pushNotifications', checked)}
                   />
                 </div>
               </div>
@@ -324,7 +324,7 @@ export function NotificationCenter({
                   <Switch
                     id="property-updates"
                     checked={settings.propertyUpdates}
-                    onCheckedChange={(checked) => updateSetting('propertyUpdates', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('propertyUpdates', checked)}
                   />
                 </div>
                 
@@ -339,7 +339,7 @@ export function NotificationCenter({
                   <Switch
                     id="social-engagement"
                     checked={settings.socialEngagement}
-                    onCheckedChange={(checked) => updateSetting('socialEngagement', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('socialEngagement', checked)}
                   />
                 </div>
                 
@@ -354,7 +354,7 @@ export function NotificationCenter({
                   <Switch
                     id="lead-notifications"
                     checked={settings.leadNotifications}
-                    onCheckedChange={(checked) => updateSetting('leadNotifications', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('leadNotifications', checked)}
                   />
                 </div>
                 
@@ -369,7 +369,7 @@ export function NotificationCenter({
                   <Switch
                     id="marketing-updates"
                     checked={settings.marketingUpdates}
-                    onCheckedChange={(checked) => updateSetting('marketingUpdates', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('marketingUpdates', checked)}
                   />
                 </div>
                 
@@ -384,7 +384,7 @@ export function NotificationCenter({
                   <Switch
                     id="system-alerts"
                     checked={settings.systemAlerts}
-                    onCheckedChange={(checked) => updateSetting('systemAlerts', checked)}
+                    onCheckedChange={(checked: boolean) => updateSetting('systemAlerts', checked)}
                   />
                 </div>
               </div>

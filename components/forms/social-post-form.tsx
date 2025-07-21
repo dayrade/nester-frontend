@@ -208,7 +208,7 @@ export function SocialPostForm({ onSubmit, properties = [], isLoading }: SocialP
             <Switch
               id="schedule"
               checked={formData.isScheduled}
-              onCheckedChange={(checked) => handleInputChange("isScheduled", checked)}
+              onCheckedChange={(checked: boolean) => handleInputChange("isScheduled", checked)}
             />
             <Label htmlFor="schedule">Schedule for later</Label>
           </div>

@@ -26,7 +26,7 @@ import {
   BookOpen,
   Bot
 } from 'lucide-react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/supabase'
 import { supabaseHelpers } from '@/lib/supabase'
 
@@ -37,13 +37,13 @@ interface PropertyDashboardProps {
 interface PropertyData {
   id: string
   address: string
-  price: number
-  bedrooms: number
-  bathrooms: number
-  square_feet: number
+  price: number | null
+  bedrooms: number | null
+  bathrooms: number | null
+  square_feet: number | null
   property_type: string
   listing_status: string
-  content_generation_status: string
+  content_generation_status: string | null
   microsite_url?: string
   brochure_pdf_url?: string
   brochure_flipbook_url?: string
@@ -102,7 +102,10 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
   const [contentStatus, setContentStatus] = useState<ContentStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   useEffect(() => {
     fetchPropertyData()
@@ -240,12 +243,10 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
         .eq('property_id', propertyId)
 
       const totalSessions = chatSessions?.length || 0
-      const qualifiedLeads = chatSessions?.filter(session => session.lead_qualification_score >= 70).length || 0
-      const averageScore = totalSessions > 0 
-        ? chatSessions.reduce((sum, session) => sum + (session.lead_qualification_score || 0), 0) / totalSessions
-        : 0
+      const qualifiedLeads = 0 // TODO: Implement lead qualification logic
+      const averageScore = 0 // TODO: Implement lead scoring
       const recentActivity = chatSessions?.filter(session => 
-        new Date(session.last_interaction_at || session.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+        new Date(session.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
       ).length || 0
 
       setContentStatus(prev => prev ? {
@@ -357,7 +358,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {getStatusBadge(property.content_generation_status)}
+          {getStatusBadge(property.content_generation_status || 'not_started')}
           <Button 
             variant="outline" 
             size="sm" 
@@ -649,7 +650,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
                 generateContent('brochure')
                 generateContent('microsite')
               }}
-              disabled={property.content_generation_status.includes('generating')}
+              disabled={property.content_generation_status?.includes('generating') || false}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Generate All Content

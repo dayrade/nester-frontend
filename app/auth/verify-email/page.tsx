@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useBrand } from '@/lib/providers/brand-provider'
 import { useSupabase } from '@/lib/providers/supabase-provider'
@@ -8,7 +8,7 @@ import { Mail, CheckCircle, AlertCircle, RefreshCw, ArrowRight, Clock } from 'lu
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { brandAssets } = useBrand()
@@ -295,5 +295,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center"><div className="loading loading-spinner loading-lg"></div></div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }

@@ -42,46 +42,52 @@ export default function BrandProvider({
 
         if (data) {
           setBrandAssets({
+            mode: data.has_custom_branding ? 'white_label' : 'nester_default',
             companyName: data.company_name || 'Nester',
-            logo: data.logo_url || '/nester-logo.svg',
+            logo: data.logo_storage_path || '/nester-logo.svg',
             primaryColor: data.primary_color || '#2563eb',
             secondaryColor: data.secondary_color || '#64748b',
-            accentColor: data.accent_color || '#f59e0b',
             fontFamily: data.font_family || 'Inter',
-            aiPersona: data.ai_persona || 'professional',
-            brandVoice: data.brand_voice || 'friendly',
-            targetAudience: data.target_audience || 'homebuyers',
-            specialties: data.specialties || ['residential']
+            persona: {
+              tone: data.persona_tone || 'Professional & Authoritative',
+              style: data.persona_style || 'Concise & Factual',
+              keyPhrases: data.persona_key_phrases || ['Discover your dream home', 'Premium real estate marketing'],
+              avoidPhrases: data.persona_phrases_to_avoid || ['cheap', 'deal', 'bargain']
+            }
           })
         } else {
           // Set default brand assets
           setBrandAssets({
+            mode: 'nester_default',
             companyName: 'Nester',
             logo: '/nester-logo.svg',
             primaryColor: '#2563eb',
             secondaryColor: '#64748b',
-            accentColor: '#f59e0b',
             fontFamily: 'Inter',
-            aiPersona: 'professional',
-            brandVoice: 'friendly',
-            targetAudience: 'homebuyers',
-            specialties: ['residential']
+            persona: {
+              tone: 'professional',
+              style: 'friendly',
+              keyPhrases: ['homebuyers'],
+              avoidPhrases: []
+            }
           })
         }
       } catch (error) {
         console.error('Error fetching brand assets:', error)
         // Set default brand assets on error
         setBrandAssets({
+          mode: 'nester_default',
           companyName: 'Nester',
           logo: '/nester-logo.svg',
           primaryColor: '#2563eb',
           secondaryColor: '#64748b',
-          accentColor: '#f59e0b',
           fontFamily: 'Inter',
-          aiPersona: 'professional',
-          brandVoice: 'friendly',
-          targetAudience: 'homebuyers',
-          specialties: ['residential']
+          persona: {
+            tone: 'professional',
+            style: 'friendly',
+            keyPhrases: ['homebuyers'],
+            avoidPhrases: []
+          }
         })
       } finally {
         setLoading(false)
@@ -100,15 +106,15 @@ export default function BrandProvider({
         .upsert({
           agent_id: user.id,
           company_name: assets.companyName,
-          logo_url: assets.logo,
+          logo_storage_path: assets.logo,
           primary_color: assets.primaryColor,
           secondary_color: assets.secondaryColor,
-          accent_color: assets.accentColor,
           font_family: assets.fontFamily,
-          ai_persona: assets.aiPersona,
-          brand_voice: assets.brandVoice,
-          target_audience: assets.targetAudience,
-          specialties: assets.specialties,
+          has_custom_branding: assets.mode === 'white_label',
+          persona_tone: assets.persona?.tone,
+          persona_style: assets.persona?.style,
+          persona_key_phrases: assets.persona?.keyPhrases,
+          persona_phrases_to_avoid: assets.persona?.avoidPhrases,
           updated_at: new Date().toISOString()
         })
 

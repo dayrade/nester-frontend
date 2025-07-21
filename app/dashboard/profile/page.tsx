@@ -116,70 +116,44 @@ export default function ProfilePage() {
     if (!user?.id) return
     
     try {
-      // Fetch properties count and total value via API
-      let properties = []
-      try {
-        const response = await fetch(`/api/properties?agent_id=${user.id}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          properties = result.properties || []
-        } else {
-          console.error('Error fetching properties via API:', response.statusText)
-        }
-      } catch (propError) {
-        console.error('Error fetching properties:', propError)
-        // Set default stats if API call fails
-        setStats({
-          total_properties: 0,
-          active_listings: 0,
-          total_value: 0,
-          social_posts: 0,
-          profile_views: Math.floor(Math.random() * 500) + 100, // Mock data
-          leads_generated: Math.floor(Math.random() * 50) + 10 // Mock data
-        })
-        return
-      }
-      
-      const totalProperties = properties?.length || 0
-      const activeListings = totalProperties // Assume all are active for now
-      const totalValue = properties?.reduce((sum, p) => sum + (p.price || 0), 0) || 0
-      
-      // Fetch social posts count
-      const { data: posts, error: postsError } = await supabase
-        .from('social_posts')
-        .select('id')
-        .eq('user_id', user.id)
-      
-      if (postsError) {
-        console.error('Error fetching social posts:', postsError)
-      }
-      
-      setStats({
-        total_properties: totalProperties,
-        active_listings: activeListings,
-        total_value: totalValue,
-        social_posts: posts?.length || 0,
-        profile_views: Math.floor(Math.random() * 500) + 100, // Mock data
-        leads_generated: Math.floor(Math.random() * 50) + 10 // Mock data
+      // Fetch profile statistics from backend API
+      const response = await fetch('/api/profile/stats', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
       })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          setStats({
+            total_properties: result.data.total_properties || 0,
+            active_listings: result.data.active_listings || 0,
+            total_value: result.data.total_value || 0,
+            social_posts: result.data.social_posts || 0,
+            profile_views: result.data.profile_views || 0,
+            leads_generated: result.data.leads_generated || 0
+          })
+          return
+        }
+      } else {
+        console.error('Error fetching profile stats via API:', response.statusText)
+      }
     } catch (error) {
       console.error('Error fetching profile stats:', error)
-      // Set default stats on any error
-      setStats({
-        total_properties: 0,
-        active_listings: 0,
-        total_value: 0,
-        social_posts: 0,
-        profile_views: Math.floor(Math.random() * 500) + 100, // Mock data
-        leads_generated: Math.floor(Math.random() * 50) + 10 // Mock data
-      })
     }
+    
+    // Fallback: Set default stats if API call fails
+    setStats({
+      total_properties: 0,
+      active_listings: 0,
+      total_value: 0,
+      social_posts: 0,
+      profile_views: Math.floor(Math.random() * 500) + 100, // Mock data
+      leads_generated: Math.floor(Math.random() * 50) + 10 // Mock data
+    })
   }, [user?.id, supabase])
   
   const fetchRecentActivity = useCallback(async () => {
@@ -252,14 +226,14 @@ export default function ProfilePage() {
           id: user.id,
           email: user.email || '',
           full_name: '',
-          phone: null,
-          bio: null,
-          website: null,
-          license_number: null,
-          brokerage: null,
-          avatar_url: null,
-          location: null,
-          years_experience: null,
+          phone: undefined,
+          bio: undefined,
+          website: undefined,
+          license_number: undefined,
+          brokerage: undefined,
+          avatar_url: undefined,
+          location: undefined,
+          years_experience: undefined,
           specialties: [],
           role: 'agent',
           created_at: new Date().toISOString(),
@@ -270,7 +244,7 @@ export default function ProfilePage() {
         console.log('Creating user profile for:', user.id, user.email)
         const { error: createError, data: createData } = await supabase
           .from('users')
-          .upsert(defaultProfileData, {
+          .upsert([defaultProfileData], {
             onConflict: 'id',
             ignoreDuplicates: false
           })
@@ -435,7 +409,6 @@ export default function ProfilePage() {
       
       // Prepare update data (excluding email as it should not be updated)
       const updateData = {
-        id: user.id,
         full_name: profileData.full_name.trim(),
         phone: profileData.phone?.trim() || null,
         bio: profileData.bio?.trim() || null,
@@ -445,26 +418,27 @@ export default function ProfilePage() {
         avatar_url: profileData.avatar_url || null,
         location: profileData.location?.trim() || null,
         years_experience: profileData.years_experience || null,
-        specialties: profileData.specialties || [],
-        updated_at: new Date().toISOString()
+        specialties: profileData.specialties || []
       }
       
       console.log('Saving profile data:', updateData)
       
-      const { error, data } = await supabase
-        .from('users')
-        .upsert(updateData, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
-        .select()
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify(updateData)
+      })
       
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(`Database error: ${error.message}`)
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update profile')
       }
       
-      console.log('Profile saved successfully:', data)
+      console.log('Profile saved successfully:', result.data)
       setMessage({ type: 'success', text: 'Profile updated successfully!' })
       
       // Refresh the profile data to ensure UI is in sync

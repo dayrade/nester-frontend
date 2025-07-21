@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { useSupabase, SupabaseProvider } from '@/lib/providers/supabase-provider'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 
 // Mock the Supabase client
 const mockSupabaseClient = {
@@ -34,8 +34,8 @@ const mockSupabaseClient = {
   }))
 }
 
-jest.mock('@supabase/auth-helpers-nextjs', () => ({
-  createClientComponentClient: jest.fn(() => mockSupabaseClient)
+jest.mock('@supabase/ssr', () => ({
+  createBrowserClient: jest.fn(() => mockSupabaseClient)
 }))
 
 // Test component that uses the hook

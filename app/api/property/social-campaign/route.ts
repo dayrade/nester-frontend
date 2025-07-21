@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types/supabase'
+import type { Database, SocialPostWithStats } from '@/types/supabase'
 
 // 70-Day Autonomous Social Media Campaign Generator
 export async function POST(request: NextRequest) {
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
         social_stats(*)
       `)
       .eq('property_id', propertyId)
-      .order('scheduled_for', { ascending: true })
+      .order('scheduled_time', { ascending: true })
 
     if (postsError) {
       console.error('Error fetching social posts:', postsError)
@@ -274,7 +274,9 @@ export async function GET(request: NextRequest) {
     const campaignAnalytics = {
       total_posts: posts.length,
       posts_by_platform: posts.reduce((acc, post) => {
-        acc[post.platform] = (acc[post.platform] || 0) + 1
+        if (post.platform) {
+          acc[post.platform] = (acc[post.platform] || 0) + 1
+        }
         return acc
       }, {} as Record<string, number>),
       posts_by_status: posts.reduce((acc, post) => {
@@ -288,15 +290,15 @@ export async function GET(request: NextRequest) {
         return acc
       }, {} as Record<string, number>),
       total_engagement: posts.reduce((sum, post) => {
-        const stats = post.social_stats?.[0]
-        return sum + (stats?.likes || 0) + (stats?.comments || 0) + (stats?.shares || 0)
+        const stats = Array.isArray(post.social_stats) ? post.social_stats[0] : null
+        return sum + (stats?.engagements || 0) + (stats?.clicks || 0) + (stats?.shares || 0)
       }, 0),
       total_reach: posts.reduce((sum, post) => {
-        const stats = post.social_stats?.[0]
-        return sum + (stats?.reach || 0)
+        const stats = Array.isArray(post.social_stats) ? post.social_stats[0] : null
+        return sum + (stats?.impressions || 0)
       }, 0),
       total_impressions: posts.reduce((sum, post) => {
-        const stats = post.social_stats?.[0]
+        const stats = Array.isArray(post.social_stats) ? post.social_stats[0] : null
         return sum + (stats?.impressions || 0)
       }, 0),
       campaign_progress: {
@@ -318,11 +320,11 @@ export async function GET(request: NextRequest) {
       recent_posts: posts.slice(0, 10).map(post => ({
         id: post.id,
         platform: post.platform,
-        content: post.content?.substring(0, 100) + '...',
+        content: post.copy_text?.substring(0, 100) + '...',
         archetype: post.archetype,
         status: post.status,
-        scheduled_for: post.scheduled_for,
-        published_at: post.published_at
+        scheduled_for: post.scheduled_time,
+        published_at: post.posted_time
       }))
     })
 

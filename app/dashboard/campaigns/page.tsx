@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSupabase } from '@/lib/providers/supabase-provider'
 import Navbar from '@/components/navigation/navbar'
 import { CampaignManager } from '@/components/marketing/campaign-manager'
+import type { Campaign } from '@/components/marketing/campaign-manager'
 import { 
   Target, 
   TrendingUp, 
@@ -37,35 +38,28 @@ const sampleCampaigns = [
     },
     targeting: {
       demographics: {
-        ageRange: { min: 25, max: 55 },
+        ageRange: [25, 55] as [number, number],
         gender: 'all' as const,
-        income: { min: 75000, max: 200000 }
+        locations: ['New York', 'Manhattan']
       },
-      geographic: {
-        locations: ['New York', 'Manhattan'],
-        radius: 25
-      },
-      interests: ['Real Estate', 'Luxury Homes', 'Investment']
+      interests: ['Real Estate', 'Luxury Homes', 'Investment'],
+      behaviors: ['High Income', 'Property Investors']
     },
     content: {
-      posts: [
-        {
-          id: '1',
-          type: 'image' as const,
-          content: 'Stunning 3BR penthouse with city views',
-          media: ['/images/property1.jpg'],
-          scheduledFor: new Date('2024-01-15'),
-          status: 'published' as const
-        }
-      ],
-      templates: []
+      headline: 'Stunning 3BR penthouse with city views',
+      description: 'Discover luxury living in the heart of Manhattan',
+      callToAction: 'Schedule a Tour',
+      images: ['/images/property1.jpg'],
+      videos: []
     },
-    performance: {
+    metrics: {
       impressions: 15420,
       clicks: 892,
       conversions: 23,
+      cost: 2300,
       ctr: 5.8,
       cpc: 2.58,
+      cpa: 100,
       roas: 3.2
     },
     createdAt: new Date('2024-01-01'),
@@ -92,34 +86,28 @@ const sampleCampaigns = [
     },
     targeting: {
       demographics: {
-        ageRange: { min: 22, max: 35 },
+        ageRange: [22, 35] as [number, number],
         gender: 'all' as const,
-        income: { min: 40000, max: 80000 }
+        locations: ['Brooklyn', 'Queens']
       },
-      geographic: {
-        locations: ['Brooklyn', 'Queens'],
-        radius: 15
-      },
-      interests: ['Home Buying', 'Real Estate', 'Investment']
+      interests: ['Home Buying', 'Real Estate', 'Investment'],
+      behaviors: ['First Time Buyers', 'Young Professionals']
     },
     content: {
-      posts: [],
-      templates: [
-        {
-          id: '1',
-          name: 'Welcome Email',
-          type: 'email' as const,
-          subject: 'Your Dream Home Awaits',
-          content: 'Welcome to your home buying journey...'
-        }
-      ]
+      headline: 'Your Dream Home Awaits',
+      description: 'Find the perfect starter home in NYC',
+      callToAction: 'Get Pre-Approved',
+      images: [],
+      videos: []
     },
-    performance: {
+    metrics: {
       impressions: 0,
       clicks: 0,
       conversions: 0,
+      cost: 0,
       ctr: 0,
       cpc: 0,
+      cpa: 0,
       roas: 0
     },
     createdAt: new Date('2024-01-20'),
@@ -129,7 +117,7 @@ const sampleCampaigns = [
 
 export default function CampaignsPage() {
   const { user } = useSupabase()
-  const [campaigns, setCampaigns] = useState(sampleCampaigns)
+  const [campaigns, setCampaigns] = useState<Campaign[]>(sampleCampaigns)
   const [loading, setLoading] = useState(false)
 
   const handleCreateCampaign = (campaign: any) => {
@@ -138,12 +126,14 @@ export default function CampaignsPage() {
       id: Date.now().toString(),
       createdAt: new Date(),
       updatedAt: new Date(),
-      performance: {
+      metrics: {
         impressions: 0,
         clicks: 0,
         conversions: 0,
+        cost: 0,
         ctr: 0,
         cpc: 0,
+        cpa: 0,
         roas: 0
       }
     }
@@ -172,12 +162,14 @@ export default function CampaignsPage() {
         status: 'draft' as const,
         createdAt: new Date(),
         updatedAt: new Date(),
-        performance: {
+        metrics: {
           impressions: 0,
           clicks: 0,
           conversions: 0,
+          cost: 0,
           ctr: 0,
           cpc: 0,
+          cpa: 0,
           roas: 0
         }
       }
@@ -250,7 +242,7 @@ export default function CampaignsPage() {
                   <div>
                     <p className="text-sm text-base-content/60">Total Impressions</p>
                     <p className="text-2xl font-bold text-base-content">
-                      {campaigns.reduce((sum, c) => sum + c.performance.impressions, 0).toLocaleString()}
+                      {campaigns.reduce((sum, c) => sum + c.metrics.impressions, 0).toLocaleString()}
                     </p>
                   </div>
                   <Eye className="h-8 w-8 text-info" />
@@ -264,7 +256,7 @@ export default function CampaignsPage() {
                   <div>
                     <p className="text-sm text-base-content/60">Conversions</p>
                     <p className="text-2xl font-bold text-base-content">
-                      {campaigns.reduce((sum, c) => sum + c.performance.conversions, 0)}
+                      {campaigns.reduce((sum, c) => sum + c.metrics.conversions, 0)}
                     </p>
                   </div>
                   <Users className="h-8 w-8 text-primary" />

@@ -36,15 +36,19 @@ export default function EditPropertyPage() {
   }, [params.id, user])
 
   const fetchProperty = async () => {
+    if (!user?.id) return
+    
     try {
       setLoading(true)
       setError(null)
       
+      const propertyId = Array.isArray(params.id) ? params.id[0] : params.id
+      
       const { data, error } = await supabase
         .from('properties')
         .select('*')
-        .eq('id', params.id)
-        .eq('agent_id', user?.id)
+        .eq('id', propertyId)
+        .eq('agent_id', user.id)
         .single()
       
       if (error) {
@@ -57,7 +61,7 @@ export default function EditPropertyPage() {
       }
       
       // Fetch property images via backend API
-      const { data: imagesData } = await supabaseHelpers.getPropertyImages(params.id as string)
+      const { data: imagesData } = await supabaseHelpers.getPropertyImages(propertyId)
       
       // Combine property data with images
       const propertyWithImages = {
@@ -75,7 +79,7 @@ export default function EditPropertyPage() {
   }
 
   const handleSave = async (formData: any) => {
-    if (!property) return
+    if (!property || !user?.id) return
     
     try {
       setSaving(true)
@@ -103,7 +107,7 @@ export default function EditPropertyPage() {
           updated_at: new Date().toISOString()
         })
         .eq('id', property.id)
-        .eq('agent_id', user?.id)
+        .eq('agent_id', user.id)
       
       if (updateError) throw updateError
       
@@ -131,9 +135,8 @@ export default function EditPropertyPage() {
             .from('property_images')
             .insert({
               property_id: property.id,
-              image_url: publicUrl,
-              alt_text: formData.title,
-              display_order: 0
+              storage_path: fileName,
+              is_hero: false
             })
           
           if (imageError) {
@@ -144,20 +147,19 @@ export default function EditPropertyPage() {
       
       // Handle image deletions
       if (formData.deletedImageIds && formData.deletedImageIds.length > 0) {
-        // Get image URLs to delete from storage
+        // Get storage paths to delete from storage
         const { data: imagesToDelete } = await supabase
           .from('property_images')
-          .select('image_url')
+          .select('storage_path')
           .in('id', formData.deletedImageIds)
         
         // Delete from storage
         if (imagesToDelete) {
           for (const image of imagesToDelete) {
-            const fileName = image.image_url.split('/').pop()
-            if (fileName) {
+            if (image.storage_path) {
               await supabase.storage
                 .from('property-images')
-                .remove([`${property.id}/${fileName}`])
+                .remove([image.storage_path])
             }
           }
         }
@@ -246,7 +248,7 @@ export default function EditPropertyPage() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Edit Property</h1>
-              <p className="text-gray-600">{property.title}</p>
+              <p className="text-gray-600">{property.address}</p>
             </div>
           </div>
           
@@ -273,36 +275,10 @@ export default function EditPropertyPage() {
         <div className="card bg-base-100 shadow-sm">
           <div className="card-body">
             <PropertyForm
-              initialData={{
-                title: property.title || '',
-                description: property.description || '',
-                property_type: property.property_type,
-                listing_status: property.listing_status,
-                address: property.address || '',
-                city: property.city || '',
-                state: property.state || '',
-                zip_code: property.zip_code || '',
-                price: property.price || 0,
-                bedrooms: property.bedrooms || 0,
-                bathrooms: property.bathrooms || 0,
-                square_feet: property.square_feet || 0,
-                lot_size: property.lot_size || 0,
-                year_built: property.year_built || 0,
-                listing_url: property.listing_url || '',
-                existingImages: property.property_images || []
-              }}
+              property={property}
               onSubmit={handleSave}
               isLoading={saving}
-              submitButtonText={
-                <>
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </>
-              }
+              submitLabel={saving ? 'Saving...' : 'Save Changes'}
             />
           </div>
         </div>

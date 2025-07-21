@@ -315,7 +315,7 @@ export function SocialAccountLinking({ className = "" }: SocialAccountLinkingPro
                         <Switch
                           id={`${account.platform}-enabled`}
                           checked={account.enabled}
-                          onCheckedChange={(enabled) => handleToggleEnabled(account.platform, enabled)}
+                          onCheckedChange={(enabled: boolean) => handleToggleEnabled(account.platform, enabled)}
                         />
                       </div>
                     )}

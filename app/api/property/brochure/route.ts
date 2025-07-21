@@ -71,49 +71,35 @@ export async function POST(request: NextRequest) {
         description: property.description,
         features: property.features,
         neighborhood_info: property.neighborhood_info,
-        school_district: property.school_district,
-        hoa_fees: property.hoa_fees,
-        property_taxes: property.property_taxes,
-        
-        // Location Data
-        latitude: property.latitude,
-        longitude: property.longitude,
-        walkability_score: property.walkability_score,
-        transit_score: property.transit_score,
-        bike_score: property.bike_score,
         
         // Market Data
-        days_on_market: property.days_on_market,
         price_per_sqft: property.price && property.square_feet ? property.price / property.square_feet : null,
         
         // Images
         images: property.property_images?.map(img => ({
-          url: img.image_url,
-          caption: img.caption,
+          url: img.storage_path,
           room_type: img.room_type,
-          is_primary: img.is_primary,
-          style_variant: img.style_variant
+          is_hero: img.is_hero
         })) || []
       },
       brand_context: {
         // Company Information
         company_name: brandData?.company_name || 'Nester',
-        agent_name: brandData?.agent_name || 'Real Estate Professional',
-        agent_title: brandData?.agent_title || 'Licensed Real Estate Agent',
-        agent_phone: brandData?.agent_phone,
-        agent_email: brandData?.agent_email,
-        agent_website: brandData?.agent_website,
+        agent_name: 'Real Estate Professional',
+        agent_title: 'Licensed Real Estate Agent',
+        agent_phone: '',
+        agent_email: '',
+        agent_website: '',
         
         // Brand Identity
-        logo_url: brandData?.logo_url || brandData?.nester_logo_url,
-        primary_color: brandData?.primary_color || brandData?.nester_primary_color,
-        secondary_color: brandData?.secondary_color || brandData?.nester_secondary_color,
-        accent_color: brandData?.accent_color || brandData?.nester_accent_color,
+        logo_url: brandData?.logo_storage_path,
+        primary_color: brandData?.primary_color,
+        secondary_color: brandData?.secondary_color,
         
         // Brand Personality
-        persona_tone: brandData?.persona_tone || 'Professional & Authoritative',
-        persona_style: brandData?.persona_style || 'Concise & Factual',
-        key_phrases: brandData?.persona_key_phrases || ['Discover your dream home'],
+        persona_tone: 'Professional & Authoritative',
+        persona_style: 'Concise & Factual',
+        key_phrases: ['Discover your dream home'],
         
         // Brand Tier
         brand_tier: brandData?.brand_tier || 'nester_default',
@@ -206,8 +192,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('properties')
       .update({
-        content_generation_status: 'generating_brochure',
-        brochure_generation_started_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
       .eq('id', property_id)
 
@@ -269,12 +254,7 @@ export async function GET(request: NextRequest) {
     const { data: property, error: propertyError } = await supabase
       .from('properties')
       .select(`
-        id,
-        brochure_generation_started_at,
-        brochure_pdf_url,
-        brochure_flipbook_url,
-        brochure_generation_metadata,
-        content_generation_status
+        id
       `)
       .eq('id', propertyId)
       .eq('agent_id', user.id)
@@ -289,34 +269,22 @@ export async function GET(request: NextRequest) {
 
     const brochureStatus = {
       property_id: propertyId,
-      status: property.content_generation_status?.includes('brochure') 
-        ? property.content_generation_status 
-        : 'not_started',
-      started_at: property.brochure_generation_started_at,
+      status: 'not_started',
+      started_at: null,
       
       // Download Links
       downloads: {
-        pdf_high_quality: property.brochure_pdf_url,
-        interactive_flipbook: property.brochure_flipbook_url,
-        web_optimized_pdf: property.brochure_generation_metadata?.web_pdf_url,
-        social_snippets: property.brochure_generation_metadata?.social_snippets_urls
+        pdf_high_quality: null,
+        interactive_flipbook: null,
+        web_optimized_pdf: null,
+        social_snippets: null
       },
       
       // Generation Details
-      generation_details: property.brochure_generation_metadata ? {
-        template_used: property.brochure_generation_metadata.template_style,
-        page_count: property.brochure_generation_metadata.final_page_count,
-        file_sizes: property.brochure_generation_metadata.file_sizes,
-        generation_duration: property.brochure_generation_metadata.generation_duration_minutes,
-        ai_enhancements_applied: property.brochure_generation_metadata.ai_enhancements,
-        brand_customization_level: property.brochure_generation_metadata.brand_customization_level
-      } : null,
+      generation_details: null,
       
       // Preview Information
-      preview: property.brochure_generation_metadata ? {
-        cover_image_url: property.brochure_generation_metadata.cover_preview_url,
-        page_thumbnails: property.brochure_generation_metadata.page_thumbnails || []
-      } : null
+      preview: null
     }
 
     return NextResponse.json(brochureStatus)

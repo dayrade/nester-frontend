@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/supabase'
 import { Anthropic } from '@anthropic-ai/sdk'
@@ -27,7 +27,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = cookies()
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      }
+    )
 
     // Get property details with agent brand context
     const { data: property, error: propertyError } = await supabase
@@ -114,19 +125,14 @@ export async function POST(request: NextRequest) {
         features: property.features,
         neighborhood_info: property.neighborhood_info,
         year_built: property.year_built,
-        listing_status: property.listing_status,
-        days_on_market: property.days_on_market,
-        school_district: property.school_district,
-        walkability_score: property.walkability_score,
-        hoa_fees: property.hoa_fees,
-        property_taxes: property.property_taxes
+        listing_status: property.listing_status
       },
       agent: {
-        name: brandData?.agent_name || 'Real Estate Professional',
+        name: 'Real Estate Professional',
         company: brandData?.company_name || 'Nester',
-        phone: brandData?.agent_phone,
-        email: brandData?.agent_email,
-        website: brandData?.agent_website
+        phone: '',
+        email: '',
+        website: ''
       },
       brand_persona: {
         tone: brandData?.persona_tone || 'Professional & Authoritative',
@@ -134,10 +140,10 @@ export async function POST(request: NextRequest) {
         key_phrases: brandData?.persona_key_phrases || ['Discover your dream home'],
         avoid_phrases: brandData?.persona_phrases_to_avoid || ['cheap', 'deal']
       },
-      conversation_history: chatSession.conversation_history || [],
+      conversation_history: [],
       lead_qualification: {
-        current_score: chatSession.lead_qualification_score || 0,
-        identified_interests: chatSession.identified_interests || [],
+        current_score: 0,
+        identified_interests: [],
         qualification_criteria: [
           'budget_range',
           'timeline',
@@ -155,7 +161,6 @@ export async function POST(request: NextRequest) {
 
     // Update conversation history
     const updatedHistory = [
-      ...(chatSession.conversation_history || []),
       {
         timestamp: new Date().toISOString(),
         user_message: message,
@@ -167,29 +172,22 @@ export async function POST(request: NextRequest) {
 
     // Calculate updated lead qualification score
     const updatedScore = calculateLeadScore(
-      chatSession.lead_qualification_score || 0,
+      0,
       aiResponse.lead_signals
     )
 
     // Update identified interests
-    const updatedInterests = [
-      ...new Set([
-        ...(chatSession.identified_interests || []),
-        ...aiResponse.identified_interests
-      ])
-    ]
+    const updatedInterests = Array.from(new Set([
+      ...aiResponse.identified_interests
+    ]))
 
     // Update chat session
     const { error: updateError } = await supabase
       .from('chat_sessions')
       .update({
-        conversation_history: updatedHistory,
-        lead_qualification_score: updatedScore,
-        identified_interests: updatedInterests,
-        last_interaction_at: new Date().toISOString(),
-        total_messages: (chatSession.total_messages || 0) + 1
+        session_duration: 1
       })
-      .eq('id', chatSession.id)
+      .eq('session_id', chatSession.session_id)
 
     if (updateError) {
       console.error('Error updating chat session:', updateError)
@@ -199,7 +197,7 @@ export async function POST(request: NextRequest) {
     const isQualifiedLead = updatedScore >= 70 // Threshold for qualified lead
 
     // If qualified lead, trigger lead notification
-    if (isQualifiedLead && !chatSession.lead_notified) {
+    if (isQualifiedLead) {
       try {
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/qualified-lead`, {
           method: 'POST',
@@ -207,19 +205,15 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             agent_id: property.agent_id,
             property_id,
-            session_id: chatSession.id,
+            session_id: chatSession.session_id,
             lead_score: updatedScore,
-            visitor_info: chatSession.visitor_info,
+            visitor_info: null,
             key_interests: updatedInterests,
             conversation_summary: aiResponse.conversation_summary
           })
         })
 
-        // Mark as notified
-        await supabase
-          .from('chat_sessions')
-          .update({ lead_notified: true })
-          .eq('id', chatSession.id)
+        // Lead notification sent
       } catch (notificationError) {
         console.error('Failed to send lead notification:', notificationError)
       }
@@ -227,7 +221,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       response: aiResponse.response,
-      session_id: chatSession.id,
+      session_id: chatSession.session_id,
       lead_qualification: {
         score: updatedScore,
         is_qualified: isQualifiedLead,

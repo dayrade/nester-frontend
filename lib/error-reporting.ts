@@ -30,6 +30,7 @@ export interface ErrorContext {
   component?: string
   action?: string
   metadata?: Record<string, any>
+  [key: string]: any
 }
 
 // Error reporting class

@@ -685,7 +685,7 @@ export function AdvancedImageUpload({
                               </div>
                               <div>
                                 <p className="text-gray-500">Compression</p>
-                                <p>{(image.result.compressionRatio * 100).toFixed(1)}%</p>
+                                <p>{image.result.optimization ? (image.result.optimization.compressionRatio * 100).toFixed(1) : '0.0'}%</p>
                               </div>
                               <div>
                                 <p className="text-gray-500">Processing Time</p>
@@ -842,7 +842,7 @@ export function AdvancedImageUpload({
                     <Label>Enable Sharpening</Label>
                     <Switch
                       checked={settings.optimization.enableSharpening}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setSettings(prev => ({
                           ...prev,
                           optimization: { ...prev.optimization, enableSharpening: checked }
@@ -855,7 +855,7 @@ export function AdvancedImageUpload({
                     <Label>Enable Noise Reduction</Label>
                     <Switch
                       checked={settings.optimization.enableNoiseReduction}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) =>
                         setSettings(prev => ({
                           ...prev,
                           optimization: { ...prev.optimization, enableNoiseReduction: checked }
@@ -868,7 +868,7 @@ export function AdvancedImageUpload({
                     <Label>Strip EXIF Data</Label>
                     <Switch
                       checked={settings.optimization.stripExif}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) =>
                         setSettings(prev => ({
                           ...prev,
                           optimization: { ...prev.optimization, stripExif: checked }
@@ -890,7 +890,7 @@ export function AdvancedImageUpload({
                     <Label>Generate Thumbnails</Label>
                     <Switch
                       checked={settings.upload.generateThumbnails}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setSettings(prev => ({
                           ...prev,
                           upload: { ...prev.upload, generateThumbnails: checked }
@@ -903,7 +903,7 @@ export function AdvancedImageUpload({
                     <Label>Make Public</Label>
                     <Switch
                       checked={settings.upload.makePublic}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setSettings(prev => ({
                           ...prev,
                           upload: { ...prev.upload, makePublic: checked }
@@ -916,7 +916,7 @@ export function AdvancedImageUpload({
                     <Label>Parallel Processing</Label>
                     <Switch
                       checked={settings.upload.enableParallelProcessing}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setSettings(prev => ({
                           ...prev,
                           upload: { ...prev.upload, enableParallelProcessing: checked }
@@ -976,7 +976,7 @@ export function AdvancedImageUpload({
                   <Label>Check for Malware</Label>
                   <Switch
                     checked={settings.validation.checkForMalware}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       setSettings(prev => ({
                         ...prev,
                         validation: { ...prev.validation, checkForMalware: checked }
@@ -1038,7 +1038,7 @@ export function AdvancedImageUpload({
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="font-medium">Compression Ratio</p>
-                            <p className="text-gray-600">{(image.result.compressionRatio * 100).toFixed(1)}%</p>
+                            <p className="text-gray-600">{image.result.optimization ? (image.result.optimization.compressionRatio * 100).toFixed(1) : '0.0'}%</p>
                           </div>
                           <div>
                             <p className="font-medium">Processing Time</p>

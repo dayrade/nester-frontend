@@ -101,9 +101,9 @@ export default function Navbar({ className = '' }: NavbarProps) {
                   className="h-7 w-auto sm:h-8"
                 />
               )}
-              <span className="text-lg sm:text-xl font-bold text-gray-900">
+              {/* <span className="text-lg sm:text-xl font-bold text-gray-900">
                 {brandAssets?.companyName || 'Nester'}
-              </span>
+              </span> */}    //jk47
             </Link>
           </div>
 
