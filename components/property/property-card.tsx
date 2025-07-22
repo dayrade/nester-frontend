@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { Property, PropertyImage } from '@/types/supabase'
 import { 
@@ -32,6 +31,34 @@ interface PropertyCardProps {
   className?: string
 }
 
+// Utility function to safely get image URL
+const getImageUrl = (image: PropertyImage | null | undefined): string => {
+  if (!image?.storage_path) {
+    return '/placeholder-property.jpg'
+  }
+  
+  const imagePath = image.storage_path
+  
+  // If it's already an absolute URL, return as-is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  
+  // If it starts with /, it's already a proper relative path
+  if (imagePath.startsWith('/')) {
+    return imagePath
+  }
+  
+  // Use environment variable for storage base URL if available
+  const storageBaseUrl = process.env.NEXT_PUBLIC_STORAGE_URL
+  if (storageBaseUrl) {
+    return `${storageBaseUrl}/${imagePath}`
+  }
+  
+  // Fallback to API route
+  return `/api/images/${imagePath}`
+}
+
 export default function PropertyCard({ 
   property, 
   onEdit, 
@@ -44,7 +71,7 @@ export default function PropertyCard({
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const primaryImage = property.property_images?.find(img => img.is_hero) || property.property_images?.[0]
-  const imageUrl = primaryImage?.storage_path || '/placeholder-property.jpg'
+  const imageUrl = getImageUrl(primaryImage)
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}/property/${property.id}`
@@ -103,14 +130,14 @@ export default function PropertyCard({
 
   return (
     <div className={`card bg-base-100 shadow-md hover:shadow-lg transition-shadow ${className}`}>
-      {/* Property Image */}
+      {/* Property Image - FIXED: Using regular img instead of Next.js Image */}
       <figure className="relative aspect-video">
-        <Image
+        <img
           src={imageError ? '/placeholder-property.jpg' : imageUrl}
           alt={property.address || 'Property'}
-          fill
-          className="object-cover"
+          className="w-full h-full object-cover"
           onError={() => setImageError(true)}
+          onLoad={() => setImageError(false)}
         />
         
         {/* Status Badge */}
@@ -279,8 +306,6 @@ export default function PropertyCard({
             <Calendar className="h-3 w-3 mr-1" />
             <span>Added {formatDate(property.created_at)}</span>
           </div>
-          
-
         </div>
       </div>
     </div>

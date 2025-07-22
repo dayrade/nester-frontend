@@ -24,15 +24,22 @@ import {
   Palette,
   Megaphone,
   BookOpen,
-  Bot
+  Bot,
+  ImageIcon
 } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { apiClient } from '@/lib/api-client'
 import type { Database } from '@/types/supabase'
-import { supabaseHelpers } from '@/lib/supabase'
-import { authenticatedFetch } from '@/lib/api-client'
 
-interface PropertyDashboardProps {
-  propertyId: string
+// Types
+interface PropertyImage {
+  id: string
+  original_url: string
+  room_type: string
+  is_primary: boolean
+  style_variant?: string
+  storage_path?: string
+  alt_text?: string
 }
 
 interface PropertyData {
@@ -48,13 +55,7 @@ interface PropertyData {
   microsite_url?: string
   brochure_pdf_url?: string
   brochure_flipbook_url?: string
-  property_images: Array<{
-    id: string
-    original_url: string
-    room_type: string
-    is_primary: boolean
-    style_variant?: string
-  }>
+  property_images: PropertyImage[]
 }
 
 interface ContentStatus {
@@ -98,40 +99,159 @@ interface ContentStatus {
   }
 }
 
+interface PropertyDashboardProps {
+  propertyId: string
+}
+
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  status?: string
+  original_images_count?: number
+  generated_images_count?: number
+  styles_generated?: string[]
+  campaign_analytics?: {
+    total_posts: number
+    posts_by_platform: Record<string, number>
+    campaign_progress: {
+      completion_percentage: number
+      posts_published: number
+      posts_scheduled: number
+    }
+  }
+  downloads?: {
+    pdf_high_quality?: string
+    interactive_flipbook?: string
+  }
+  generation_details?: {
+    page_count?: number
+  }
+  microsite_url?: string
+  analytics?: {
+    total_visits: number
+    unique_visitors: number
+    lead_captures: number
+    conversion_rate: number
+  }
+}
+
+interface ChatSession {
+  id: string
+  property_id: string
+  created_at: string
+  updated_at: string
+  [key: string]: any
+}
+
+// Utility function to safely get image URL
+const getImageUrl = (image: PropertyImage | null | undefined): string | null => {
+  if (!image) return null
+  
+  // Try different image URL sources in order of preference
+  const imagePath = image.original_url || image.storage_path
+  if (!imagePath) return null
+  
+  // If it's already an absolute URL, return as-is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  
+  // Use environment variable for storage base URL if available
+  const storageBaseUrl = process.env.NEXT_PUBLIC_STORAGE_URL
+  if (storageBaseUrl) {
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath
+    return `${storageBaseUrl}/${cleanPath}`
+  }
+  
+  // Fallback to API route
+  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath
+  return `/api/images/${cleanPath}`
+}
+
+// Helper functions
+const authenticatedFetch = async (url: string, options?: RequestInit): Promise<Response> => {
+  const defaultOptions: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      // Add auth headers if needed
+    },
+    ...options
+  }
+  
+  return fetch(url, defaultOptions)
+}
+
+// Main component
 export default function PropertyDashboard({ propertyId }: PropertyDashboardProps) {
   const [property, setProperty] = useState<PropertyData | null>(null)
-  const [contentStatus, setContentStatus] = useState<ContentStatus | null>(null)
+  const [contentStatus, setContentStatus] = useState<ContentStatus>({
+    images: {
+      status: 'not_started',
+      original_count: 0,
+      generated_count: 0,
+      styles: []
+    },
+    social_campaign: {
+      status: 'not_started',
+      total_posts: 0,
+      posts_by_platform: {},
+      campaign_progress: {
+        completion_percentage: 0,
+        posts_published: 0,
+        posts_scheduled: 0
+      }
+    },
+    brochure: {
+      status: 'not_started'
+    },
+    microsite: {
+      status: 'not_started',
+      analytics: {
+        total_visits: 0,
+        unique_visitors: 0,
+        lead_captures: 0,
+        conversion_rate: 0
+      }
+    },
+    chat_agent: {
+      total_sessions: 0,
+      qualified_leads: 0,
+      average_lead_score: 0,
+      recent_activity: 0
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const [error, setError] = useState<string | null>(null)
+
+  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
-    fetchPropertyData()
+    if (propertyId) {
+      fetchPropertyData()
+    }
   }, [propertyId])
 
   const fetchPropertyData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
-      // Fetch property details
-      const { data: propertyData, error: propertyError } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single()
-
-      if (propertyError) throw propertyError
+      // Fetch property details using API client
+      const propertyResult = await apiClient.getProperty(propertyId)
       
-      // Fetch property images via backend API
-      const { data: imagesData } = await supabaseHelpers.getPropertyImages(propertyId)
+      if (!propertyResult.success || !propertyResult.data) {
+        throw new Error(propertyResult.error || 'Failed to fetch property')
+      }
+      
+      // Fetch property images using API client
+      const imagesResult = await apiClient.getPropertyImages(propertyId)
       
       // Combine property data with images
-      const propertyWithImages = {
-        ...propertyData,
-        property_images: imagesData || []
+      const propertyWithImages: PropertyData = {
+        ...propertyResult.data,
+        property_images: imagesResult.success ? imagesResult.data || [] : []
       }
       
       setProperty(propertyWithImages)
@@ -145,8 +265,10 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
         fetchChatAgentStatus()
       ])
 
-    } catch (error) {
-      console.error('Error fetching property data:', error)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      console.error('Error fetching property data:', err)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -155,9 +277,13 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
   const fetchImageStatus = async () => {
     try {
       const response = await authenticatedFetch(`/api/property/generate-images?property_id=${propertyId}`)
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
       
-      setContentStatus(prev => prev ? {
+      const data: ApiResponse = await response.json()
+      
+      setContentStatus(prev => ({
         ...prev,
         images: {
           status: data.status || 'not_started',
@@ -165,18 +291,29 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           generated_count: data.generated_images_count || 0,
           styles: data.styles_generated || []
         }
-      } : null)
+      }))
     } catch (error) {
       console.error('Error fetching image status:', error)
+      setContentStatus(prev => ({
+        ...prev,
+        images: {
+          ...prev.images,
+          status: 'error'
+        }
+      }))
     }
   }
 
   const fetchSocialCampaignStatus = async () => {
     try {
       const response = await authenticatedFetch(`/api/property/social-campaign?property_id=${propertyId}`)
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
       
-      setContentStatus(prev => prev ? {
+      const data: ApiResponse = await response.json()
+      
+      setContentStatus(prev => ({
         ...prev,
         social_campaign: {
           status: data.status || 'not_started',
@@ -188,18 +325,29 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
             posts_scheduled: 0
           }
         }
-      } : null)
+      }))
     } catch (error) {
       console.error('Error fetching social campaign status:', error)
+      setContentStatus(prev => ({
+        ...prev,
+        social_campaign: {
+          ...prev.social_campaign,
+          status: 'error'
+        }
+      }))
     }
   }
 
   const fetchBrochureStatus = async () => {
     try {
       const response = await authenticatedFetch(`/api/property/brochure?property_id=${propertyId}`)
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
       
-      setContentStatus(prev => prev ? {
+      const data: ApiResponse = await response.json()
+      
+      setContentStatus(prev => ({
         ...prev,
         brochure: {
           status: data.status || 'not_started',
@@ -207,18 +355,29 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           flipbook_url: data.downloads?.interactive_flipbook,
           page_count: data.generation_details?.page_count
         }
-      } : null)
+      }))
     } catch (error) {
       console.error('Error fetching brochure status:', error)
+      setContentStatus(prev => ({
+        ...prev,
+        brochure: {
+          ...prev.brochure,
+          status: 'error'
+        }
+      }))
     }
   }
 
   const fetchMicrositeStatus = async () => {
     try {
       const response = await authenticatedFetch(`/api/property/microsite?property_id=${propertyId}`)
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
       
-      setContentStatus(prev => prev ? {
+      const data: ApiResponse = await response.json()
+      
+      setContentStatus(prev => ({
         ...prev,
         microsite: {
           status: data.status || 'not_started',
@@ -230,27 +389,40 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
             conversion_rate: 0
           }
         }
-      } : null)
+      }))
     } catch (error) {
       console.error('Error fetching microsite status:', error)
+      setContentStatus(prev => ({
+        ...prev,
+        microsite: {
+          ...prev.microsite,
+          status: 'error'
+        }
+      }))
     }
   }
 
   const fetchChatAgentStatus = async () => {
     try {
-      const { data: chatSessions } = await supabase
+      const { data: chatSessions, error } = await supabase
         .from('chat_sessions')
         .select('*')
         .eq('property_id', propertyId)
 
-      const totalSessions = chatSessions?.length || 0
+      if (error) {
+        console.error('Error fetching chat sessions:', error)
+        return
+      }
+
+      const sessions = chatSessions || []
+      const totalSessions = sessions.length
       const qualifiedLeads = 0 // TODO: Implement lead qualification logic
       const averageScore = 0 // TODO: Implement lead scoring
-      const recentActivity = chatSessions?.filter(session => 
+      const recentActivity = sessions.filter(session => 
         new Date(session.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-      ).length || 0
+      ).length
 
-      setContentStatus(prev => prev ? {
+      setContentStatus(prev => ({
         ...prev,
         chat_agent: {
           total_sessions: totalSessions,
@@ -258,7 +430,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           average_lead_score: averageScore,
           recent_activity: recentActivity
         }
-      } : null)
+      }))
     } catch (error) {
       console.error('Error fetching chat agent status:', error)
     }
@@ -273,7 +445,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
   const generateContent = async (contentType: string) => {
     try {
       let endpoint = ''
-      let payload = { property_id: propertyId }
+      const payload = { property_id: propertyId }
 
       switch (contentType) {
         case 'images':
@@ -289,6 +461,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           endpoint = '/api/property/microsite'
           break
         default:
+          console.warn(`Unknown content type: ${contentType}`)
           return
       }
 
@@ -298,37 +471,57 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
         body: JSON.stringify(payload)
       })
 
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data: ApiResponse = await response.json()
       
       if (data.success) {
         // Refresh data after a short delay
         setTimeout(() => fetchPropertyData(), 2000)
       } else {
-        console.error(`Error generating ${contentType}:`, data.error)
+        throw new Error(data.error || `Failed to generate ${contentType}`)
       }
     } catch (error) {
       console.error(`Error generating ${contentType}:`, error)
+      // You might want to show a toast notification here
     }
   }
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'not_started': { variant: 'secondary' as const, text: 'Not Started' },
-      'generating': { variant: 'default' as const, text: 'Generating...' },
-      'generating_images': { variant: 'default' as const, text: 'Generating Images...' },
-      'generating_social_campaign': { variant: 'default' as const, text: 'Creating Campaign...' },
-      'generating_brochure': { variant: 'default' as const, text: 'Creating Brochure...' },
-      'generating_microsite': { variant: 'default' as const, text: 'Building Microsite...' },
-      'completed': { variant: 'default' as const, text: 'Completed' },
-      'images_completed': { variant: 'default' as const, text: 'Images Ready' },
-      'social_campaign_completed': { variant: 'default' as const, text: 'Campaign Live' },
-      'brochure_completed': { variant: 'default' as const, text: 'Brochure Ready' },
-      'microsite_completed': { variant: 'default' as const, text: 'Microsite Live' },
-      'error': { variant: 'destructive' as const, text: 'Error' }
+    const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', text: string }> = {
+      'not_started': { variant: 'secondary', text: 'Not Started' },
+      'generating': { variant: 'default', text: 'Generating...' },
+      'generating_images': { variant: 'default', text: 'Generating Images...' },
+      'generating_social_campaign': { variant: 'default', text: 'Creating Campaign...' },
+      'generating_brochure': { variant: 'default', text: 'Creating Brochure...' },
+      'generating_microsite': { variant: 'default', text: 'Building Microsite...' },
+      'completed': { variant: 'default', text: 'Completed' },
+      'images_completed': { variant: 'default', text: 'Images Ready' },
+      'social_campaign_completed': { variant: 'default', text: 'Campaign Live' },
+      'brochure_completed': { variant: 'default', text: 'Brochure Ready' },
+      'microsite_completed': { variant: 'default', text: 'Microsite Live' },
+      'error': { variant: 'destructive', text: 'Error' }
     }
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig['not_started']
+    const config = statusConfig[status] || statusConfig['not_started']
     return <Badge variant={config.variant}>{config.text}</Badge>
+  }
+
+  const formatPrice = (price: number | null): string => {
+    if (price === null || price === undefined) return 'Price not available'
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price)
+  }
+
+  const formatNumber = (num: number | null): string => {
+    if (num === null || num === undefined) return '0'
+    return num.toLocaleString()
   }
 
   if (loading) {
@@ -336,7 +529,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
+          {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
@@ -344,9 +537,37 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
     )
   }
 
-  if (!property || !contentStatus) {
-    return <div>Property not found</div>
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-semibold mb-2">Error Loading Property</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
   }
+
+  if (!property) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-semibold mb-2">Property not found</h2>
+          <p className="text-muted-foreground">The requested property could not be found.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Get primary image for display
+  const primaryImage = property.property_images?.find(img => img.is_primary) || 
+                      property.property_images?.[0] || null
+  const imageUrl = getImageUrl(primaryImage)
+  const imageCount = property.property_images?.length || 0
 
   return (
     <div className="space-y-6">
@@ -355,7 +576,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
         <div>
           <h1 className="text-3xl font-bold">{property.address}</h1>
           <p className="text-muted-foreground">
-            ${property.price?.toLocaleString()} • {property.bedrooms} bed • {property.bathrooms} bath • {property.square_feet?.toLocaleString()} sq ft
+            {formatPrice(property.price)} • {property.bedrooms} bed • {property.bathrooms} bath • {formatNumber(property.square_feet)} sq ft
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -371,6 +592,47 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           </Button>
         </div>
       </div>
+
+      {/* Property Image Preview */}
+      {property.property_images && property.property_images.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Property Images ({imageCount})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video relative bg-gray-100 rounded-lg overflow-hidden max-w-md">
+              {imageUrl ? (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt={primaryImage?.alt_text || property.address}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Image+Error'
+                    }}
+                  />
+                  {imageCount > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      +{imageCount - 1} more
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <Home className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No image available</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Content Generation Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -396,8 +658,8 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
               </div>
               {contentStatus.images.styles.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {contentStatus.images.styles.map(style => (
-                    <Badge key={style} variant="outline" className="text-xs">
+                  {contentStatus.images.styles.map((style, index) => (
+                    <Badge key={`${style}-${index}`} variant="outline" className="text-xs">
                       {style}
                     </Badge>
                   ))}
