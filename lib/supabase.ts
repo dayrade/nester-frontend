@@ -75,18 +75,8 @@ export const supabaseHelpers = {
   // Property images via backend API
   async getPropertyImages(propertyId: string) {
     try {
-      const response = await fetch(`/api/properties/${propertyId}/images`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const result = await response.json()
+      const { apiClient } = await import('./api-client')
+      const result = await apiClient.getPropertyImages(propertyId)
       return { data: result.data || [], error: null }
     } catch (error) {
       return { data: null, error }

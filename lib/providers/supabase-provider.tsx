@@ -87,10 +87,25 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       
       if (error) return { error }
       
+      // Cache the session immediately for faster subsequent requests
+      if (data.session) {
+        try {
+          const cached = {
+            session: data.session,
+            timestamp: Date.now(),
+            expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutes
+          }
+          localStorage.setItem('nester_session_cache', JSON.stringify(cached))
+          console.log('✅ Session cached on login')
+        } catch (storageError) {
+          console.warn('Failed to cache session on login:', storageError)
+        }
+      }
+      
       // Then notify our Express server
       if (data.session) {
         try {
-          await fetch('http://localhost:3002/api/auth/signin', {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -129,7 +144,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       // Then notify our Express server
       if (data.user) {
         try {
-          await fetch('http://localhost:3002/api/auth/signup', {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/signup`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -153,12 +168,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Clear session cache from localStorage
+      try {
+        localStorage.removeItem('nester_session_cache')
+      } catch (storageError) {
+        console.warn('Failed to clear session cache:', storageError)
+      }
+      
       // First sign out from Supabase
       await supabase.auth.signOut()
       
       // Then notify our Express server
       try {
-        await fetch('http://localhost:3002/api/auth/logout', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

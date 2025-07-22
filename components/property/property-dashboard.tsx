@@ -29,6 +29,7 @@ import {
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/supabase'
 import { supabaseHelpers } from '@/lib/supabase'
+import { authenticatedFetch } from '@/lib/api-client'
 
 interface PropertyDashboardProps {
   propertyId: string
@@ -153,7 +154,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
 
   const fetchImageStatus = async () => {
     try {
-      const response = await fetch(`/api/property/generate-images?property_id=${propertyId}`)
+      const response = await authenticatedFetch(`/api/property/generate-images?property_id=${propertyId}`)
       const data = await response.json()
       
       setContentStatus(prev => prev ? {
@@ -172,7 +173,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
 
   const fetchSocialCampaignStatus = async () => {
     try {
-      const response = await fetch(`/api/property/social-campaign?property_id=${propertyId}`)
+      const response = await authenticatedFetch(`/api/property/social-campaign?property_id=${propertyId}`)
       const data = await response.json()
       
       setContentStatus(prev => prev ? {
@@ -195,7 +196,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
 
   const fetchBrochureStatus = async () => {
     try {
-      const response = await fetch(`/api/property/brochure?property_id=${propertyId}`)
+      const response = await authenticatedFetch(`/api/property/brochure?property_id=${propertyId}`)
       const data = await response.json()
       
       setContentStatus(prev => prev ? {
@@ -214,7 +215,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
 
   const fetchMicrositeStatus = async () => {
     try {
-      const response = await fetch(`/api/property/microsite?property_id=${propertyId}`)
+      const response = await authenticatedFetch(`/api/property/microsite?property_id=${propertyId}`)
       const data = await response.json()
       
       setContentStatus(prev => prev ? {
@@ -291,7 +292,7 @@ export default function PropertyDashboard({ propertyId }: PropertyDashboardProps
           return
       }
 
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

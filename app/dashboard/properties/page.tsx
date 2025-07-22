@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/api-client'
 
 type SortOption = 'created_at' | 'price' | 'address' | 'updated_at'
 type SortDirection = 'asc' | 'desc'
@@ -60,19 +61,7 @@ export default function PropertiesPage() {
     setError(null)
     
     try {
-      const response = await fetch(`/api/properties?agent_id=${user.id}&include_images=true`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch properties')
-      }
-      
+      const result = await apiClient.getProperties()
       setProperties(result.properties || [])
     } catch (err) {
       console.error('Error fetching properties:', err)
@@ -144,24 +133,8 @@ export default function PropertiesPage() {
       return
     }
     
-    if (!user?.id) {
-      throw new Error('User ID is required')
-    }
-    
     try {
-      const response = await fetch(`/api/properties?id=${property.id}&agent_id=${user.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete property')
-      }
-      
+      await apiClient.deleteProperty(property.id)
       // Remove from local state
       setProperties(prev => prev.filter(p => p.id !== property.id))
     } catch (err) {

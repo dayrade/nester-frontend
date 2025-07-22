@@ -29,15 +29,36 @@ export default function SupabaseProvider({
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        // First try to get the current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (session?.user) {
+          setUser(session.user)
+        } else {
+          // If no session, try to get user directly (for cases where session might be stale)
+          const { data: { user }, error: userError } = await supabase.auth.getUser()
+          setUser(user)
+          
+          // If we have a user but no session, try to refresh
+          if (user && !session) {
+            console.log('User found but no session, attempting refresh...')
+            await supabase.auth.refreshSession()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user:', error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, !!session)
         setUser(session?.user ?? null)
         setLoading(false)
         
@@ -47,6 +68,11 @@ export default function SupabaseProvider({
         
         if (event === 'SIGNED_OUT') {
           router.push('/auth/login')
+        }
+        
+        // Handle token refresh events
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed successfully')
         }
       }
     )

@@ -149,26 +149,9 @@ class UploadService {
    */
   async getPropertyImages(propertyId: string): Promise<any[]> {
     try {
-      const response = await fetch(`/api/properties/${propertyId}/images`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch images' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch images')
-      }
-
+      const { apiClient } = await import('./api-client')
+      const result = await apiClient.getPropertyImages(propertyId)
       return result.data || []
-
     } catch (error) {
       console.error('Error fetching property images:', error)
       throw error
@@ -180,21 +163,9 @@ class UploadService {
    */
   async deletePropertyImage(propertyId: string, imageId: string): Promise<boolean> {
     try {
-      const response = await fetch(`/api/properties/${propertyId}/images/${imageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to delete image' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const result = await response.json()
+      const { apiClient } = await import('./api-client')
+      const result = await apiClient.deletePropertyImage(propertyId, imageId)
       return result.success || false
-
     } catch (error) {
       console.error('Error deleting property image:', error)
       throw error

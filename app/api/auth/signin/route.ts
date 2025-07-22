@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Forward the request to the Express backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
-    const response = await fetch(`${backendUrl}/api/auth/signin`, {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001'
+    const response = await fetch(`${backendUrl}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

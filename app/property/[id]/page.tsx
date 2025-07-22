@@ -34,6 +34,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { supabase, supabaseHelpers } from '@/lib/supabase'
 import { formatCurrency, formatDate, formatNumber, formatRelativeTime } from '@/lib/utils'
+import { authenticatedFetch, apiClient } from '@/lib/api-client'
 import MortgageCalculator from '@/components/property/mortgage-calculator'
 
 interface PropertyWithImages extends Property {
@@ -144,21 +145,7 @@ export default function PropertyDetailPage() {
     try {
       setIsGeneratingContent(true)
       
-      const response = await fetch('/api/property/generate-content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          propertyId: property.id
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate content')
-      }
-      
-      const result = await response.json()
+      const result = await apiClient.generatePropertyContent(property.id)
       
       if (result.success) {
         // Refresh social posts

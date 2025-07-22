@@ -9,6 +9,7 @@ import { ArrowLeft, Link as LinkIcon, FileText, Upload, Loader2, Lock } from 'lu
 import Link from 'next/link'
 import Image from 'next/image'
 import { useLoading } from '@/hooks/use-loading'
+import { authenticatedFetch } from '@/lib/api-client'
 
 import { PerfectPropertyForm } from '@/components/forms/perfect-property-form'
 
@@ -90,7 +91,7 @@ export default function AddPropertyPage() {
     try {
       await withLoading(async () => {
       // Call N8N workflow to scrape property data
-      const response = await fetch('/api/property/scrape', {
+      const response = await authenticatedFetch('/api/property/scrape', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

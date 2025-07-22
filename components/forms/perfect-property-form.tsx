@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSupabase } from '@/lib/providers/supabase-provider'
 import { EnhancedImageUpload, type ImageFile } from '../property/enhanced-image-upload'
+import { apiClient, sessionCacheManager } from '@/lib/api-client'
 import { 
   Upload, 
   X, 
@@ -79,7 +80,7 @@ export default function PerfectPropertyForm({
   className = ''
 }: PerfectPropertyFormProps) {
   const router = useRouter()
-  const { user } = useSupabase()
+  const { user, supabase } = useSupabase()
   
   // Form state
   const [formData, setFormData] = useState<PerfectPropertyFormData>({
@@ -102,12 +103,25 @@ export default function PerfectPropertyForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [isRefreshingSession, setIsRefreshingSession] = useState(false)
+  
+  // Debug component initialization
+  useEffect(() => {
+    console.log('=== COMPONENT INITIALIZATION ===')
+    console.log('API Client:', apiClient)
+    console.log('API Client methods:', Object.keys(apiClient || {}))
+    console.log('createProperty method exists:', typeof apiClient?.createProperty === 'function')
+    console.log('User:', user)
+    console.log('Environment:', process.env.NODE_ENV)
+    console.log('Initial form data:', formData)
+  }, [])
   
   // Auto-save draft functionality
   useEffect(() => {
     const draftKey = 'perfect-property-draft'
     const timer = setTimeout(() => {
       if (formData.address || formData.description) {
+        console.log('Saving draft to localStorage...')
         localStorage.setItem(draftKey, JSON.stringify({
           ...formData,
           timestamp: Date.now()
@@ -129,10 +143,13 @@ export default function PerfectPropertyForm({
           const age = Date.now() - (draft.timestamp || 0)
           // Only load drafts less than 24 hours old
           if (age < 24 * 60 * 60 * 1000) {
+            console.log('Loading draft from localStorage:', draft)
             setFormData(prev => ({ ...prev, ...draft }))
+          } else {
+            console.log('Draft too old, skipping')
           }
-        } catch {
-          // Ignore invalid drafts
+        } catch (error) {
+          console.log('Failed to parse draft:', error)
         }
       }
     }
@@ -140,6 +157,7 @@ export default function PerfectPropertyForm({
 
   // Validation function
   const validateForm = useCallback((): boolean => {
+    console.log('=== RUNNING FORM VALIDATION ===')
     const newErrors: Record<string, string> = {}
     
     // Required fields
@@ -172,11 +190,19 @@ export default function PerfectPropertyForm({
       newErrors.source_url = 'Please enter a valid URL'
     }
     
-    // Image validation - check if images have required metadata
+    // Image validation - check if images have required metadata (only if images are uploaded)
     const invalidImages = images.filter(img => !img.roomType || !img.file)
-    if (invalidImages.length > 0) {
+    if (images.length > 0 && invalidImages.length > 0) {
       newErrors.images = 'Please select a room type for all uploaded images and ensure all files are valid'
     }
+    
+    console.log('Validation results:')
+    console.log('- Address:', formData.address, 'Valid:', !!formData.address.trim())
+    console.log('- Price:', formData.price, 'Valid:', formData.price === null || formData.price > 0)
+    console.log('- New errors:', newErrors)
+    console.log('- Invalid images:', invalidImages)
+    console.log('- Images array:', images)
+    console.log('- Validation passed:', Object.keys(newErrors).length === 0)
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -184,6 +210,7 @@ export default function PerfectPropertyForm({
 
   // Handle input changes
   const handleInputChange = useCallback((field: keyof PerfectPropertyFormData, value: any) => {
+    console.log(`Input changed: ${field} = ${value}`)
     setFormData(prev => ({ ...prev, [field]: value }))
     // Clear error for this field when user starts typing
     if (errors[field]) {
@@ -191,9 +218,38 @@ export default function PerfectPropertyForm({
     }
   }, [errors])
 
+  // Handle session refresh
+  const handleSessionRefresh = useCallback(async () => {
+    console.log('=== REFRESHING SESSION ===')
+    setIsRefreshingSession(true)
+    setSubmitError('')
+    
+    try {
+      const { data, error } = await supabase.auth.refreshSession()
+      
+      if (error) {
+        console.error('Session refresh error:', error)
+        throw error
+      }
+      
+      if (data?.session) {
+        console.log('Session refreshed successfully:', data.session)
+        setSubmitError('')
+      } else {
+        throw new Error('Failed to refresh session')
+      }
+    } catch (error) {
+      console.error('Session refresh failed:', error)
+      setSubmitError('Session refresh failed. Please log in again.')
+    } finally {
+      setIsRefreshingSession(false)
+    }
+  }, [supabase])
+
   // Handle feature management
   const addFeature = useCallback(() => {
     if (newFeature.trim() && !formData.features.includes(newFeature.trim())) {
+      console.log('Adding feature:', newFeature.trim())
       setFormData(prev => ({
         ...prev,
         features: [...prev.features, newFeature.trim()]
@@ -203,6 +259,7 @@ export default function PerfectPropertyForm({
   }, [newFeature, formData.features])
 
   const removeFeature = useCallback((index: number) => {
+    console.log('Removing feature at index:', index)
     setFormData(prev => ({
       ...prev,
       features: prev.features.filter((_, i) => i !== index)
@@ -211,6 +268,7 @@ export default function PerfectPropertyForm({
 
   // Handle image changes
   const handleImagesChange = useCallback((newImages: ImageFile[]) => {
+    console.log('Images changed:', newImages.length, 'images')
     setImages(newImages)
     // Clear image errors when images change
     if (errors.images) {
@@ -218,54 +276,27 @@ export default function PerfectPropertyForm({
     }
   }, [errors.images])
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!user) {
-      setSubmitError('You must be logged in to create a property')
-      return
-    }
-    
-    if (!validateForm()) {
-      setSubmitError('Please fix the errors above before submitting')
-      return
-    }
-    
-    setIsSubmitting(true)
-    setSubmitError('')
-    setSubmitSuccess(false)
-    
-    try {
-      if (onSubmit) {
-        await onSubmit(formData, images)
-      } else {
-        // Default submission logic
-        await handleDefaultSubmit()
-      }
-      
-      setSubmitSuccess(true)
-      // Clear draft after successful submission
-      localStorage.removeItem('perfect-property-draft')
-      
-      // Redirect after a short delay
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
-      
-    } catch (error) {
-      console.error('Error submitting property:', error)
-      setSubmitError(error instanceof Error ? error.message : 'Failed to create property')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  // 🔥 ENHANCED DEBUG VERSION - Test API directly
+ 
+
+  // 🔥 ENHANCED DEBUG VERSION - Default submission handler
+// Update your handleDefaultSubmit function in the form component:
+
+const handleDefaultSubmit = async () => {
+  console.log('🔥 === DEFAULT SUBMIT HANDLER START ===')
   
-  // Default submission handler
-  const handleDefaultSubmit = async () => {
-    // Prepare property data for API
+  try {
+    // Step 1: Check user
+    console.log('🔍 STEP 1: Checking user...', { 
+      user: !!user, 
+      userId: user?.id,
+      environment: process.env.NODE_ENV 
+    })
+    
+    // Step 2: Prepare data
+    console.log('🔍 STEP 2: Preparing property data...')
     const propertyData = {
-      agent_id: user!.id,
+      agent_id: user?.id || '2db617a1-e6b1-4d58-b6eb-37ec7476af37',
       address: formData.address,
       price: formData.price,
       property_type: formData.property_type,
@@ -276,74 +307,372 @@ export default function PerfectPropertyForm({
       description: formData.description,
       features: formData.features,
       source_url: formData.source_url,
-      input_method: formData.input_method
+      input_method: formData.input_method,
+      test_mode: true // Always use test mode for debugging
     }
-
-    // Create property using original endpoint
-    const response = await fetch('/api/properties', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(propertyData)
-    })
-
-    const result = await response.json()
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to create property')
+    console.log('✅ Property data prepared:', propertyData)
+    
+    // Step 3: Check API client
+    console.log('🔍 STEP 3: Checking API client...')
+    
+    if (!apiClient) {
+      throw new Error('❌ apiClient is null/undefined')
     }
-
+    
+    if (typeof apiClient.createProperty !== 'function') {
+      throw new Error('❌ apiClient.createProperty is not a function')
+    }
+    
+    console.log('✅ API client validation passed')
+    
+    // Step 4: Test connection first
+    console.log('🔍 STEP 4: Testing backend connection...')
+    const connectionTest = await apiClient.testConnection()
+    console.log('Connection test result:', connectionTest)
+    
+    if (!connectionTest.success) {
+      throw new Error(`Backend connection failed: ${connectionTest.message}`)
+    }
+    
+    console.log('✅ Backend connection verified')
+    
+    // Step 5: Test authentication
+    console.log('🔍 STEP 5: Testing authentication...')
+    const authTest = await apiClient.testAuth()
+    console.log('Auth test result:', authTest)
+    
+    // In development with test_mode, we can continue without auth
+    if (!authTest.success && process.env.NODE_ENV !== 'development') {
+      throw new Error(`Authentication failed: ${authTest.message}`)
+    }
+    
+    console.log('✅ Authentication verified (or test mode)')
+    
+    // Step 6: Create property
+    console.log('🔍 STEP 6: Creating property...')
+    const result = await apiClient.createProperty(propertyData)
+    console.log('Create property result:', result)
+    
+    if (!result.success) {
+      throw new Error(`Property creation failed: ${result.error}`)
+    }
+    
+    if (!result.data || !result.data.id) {
+      throw new Error('Invalid API response - missing property data or ID')
+    }
+    
     const property = result.data
+    console.log('✅ Property created successfully with ID:', property.id)
 
-    // Upload images if any
+    // Step 7: Upload images if any
     if (images.length > 0) {
-      const uploadPromises = images.map(async (imageFile, index) => {
-        const formData = new FormData()
-        formData.append('image', imageFile.file)
-        formData.append('displayOrder', index.toString())
-        formData.append('isPrimary', (index === 0).toString())
-        formData.append('roomType', imageFile.roomType || '')
-        formData.append('altText', `Property image ${index + 1}`)
-        
-        const uploadResponse = await fetch(`/api/properties/${property.id}/images`, {
-          method: 'POST',
-          body: formData
+      console.log(`🔍 STEP 7: Uploading ${images.length} images...`)
+      
+      const uploadResults = []
+      for (let i = 0; i < images.length; i++) {
+        const imageFile = images[i]
+        console.log(`Uploading image ${i + 1}/${images.length}:`, {
+          file: imageFile.file?.name,
+          roomType: imageFile.roomType,
+          size: imageFile.file?.size
         })
-
-        if (!uploadResponse.ok) {
-          const errorData = await uploadResponse.json()
-          throw new Error(errorData.error || `Failed to upload image ${index + 1}`)
+        
+        const imageFormData = new FormData()
+        imageFormData.append('image', imageFile.file)
+        imageFormData.append('displayOrder', i.toString())
+        imageFormData.append('isPrimary', (i === 0).toString())
+        imageFormData.append('roomType', imageFile.roomType || '')
+        imageFormData.append('altText', `Property image ${i + 1}`)
+        
+        const uploadResult = await apiClient.uploadPropertyImage(property.id, imageFormData)
+        console.log(`Upload result for image ${i + 1}:`, uploadResult)
+        
+        if (!uploadResult.success) {
+          console.warn(`⚠️ Failed to upload image ${i + 1}:`, uploadResult.error)
+        } else {
+          uploadResults.push(uploadResult)
         }
-
-        return await uploadResponse.json()
-      })
-
-      await Promise.all(uploadPromises)
+      }
+      
+      console.log('✅ Image upload process completed:', uploadResults.length, 'successful uploads')
+    } else {
+      console.log('ℹ️ No images to upload')
     }
 
-    // Trigger content generation
+    // Step 8: Trigger content generation
     try {
-      await fetch('/api/property/generate-content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          property_id: property.id
-        })
-      })
+      console.log('🔍 STEP 8: Generating property content...')
+      const contentResult = await apiClient.generatePropertyContent(property.id)
+      console.log('Content generation result:', contentResult)
+      
+      if (contentResult.success) {
+        console.log('✅ Content generation started successfully')
+      } else {
+        console.warn('⚠️ Content generation failed (non-critical):', contentResult.error)
+      }
     } catch (error) {
-      console.warn('Content generation failed:', error)
+      console.warn('⚠️ Content generation error (non-critical):', error)
       // Don't fail the whole process if content generation fails
+    }
+    
+    console.log('🎉 Property creation process completed successfully!')
+    return property
+    
+  } catch (error) {
+    console.error('🔥 DEFAULT SUBMIT HANDLER ERROR:', error)
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    })
+    throw error
+  }
+}
+
+// Also update your test button function:
+const testApiDirectly = async () => {
+  console.log('🧪 === COMPREHENSIVE API TEST ===')
+  
+  try {
+    // Test 1: Connection
+    console.log('\n🔍 TEST 1: Backend Connection')
+    const connectionTest = await apiClient.testConnection()
+    console.log('Connection result:', connectionTest)
+    
+    if (!connectionTest.success) {
+      alert(`❌ Backend connection failed: ${connectionTest.message}`)
+      return
+    }
+    
+    alert('✅ Backend connection successful!')
+    
+    // Test 2: Authentication
+    console.log('\n🔍 TEST 2: Authentication')
+    const authTest = await apiClient.testAuth()
+    console.log('Auth result:', authTest)
+    alert(`Auth status: ${authTest.message}`)
+    
+    // Test 3: Properties endpoint
+    console.log('\n🔍 TEST 3: Properties Endpoint')
+    const propertiesTest = await apiClient.testPropertiesEndpoint()
+    console.log('Properties endpoint result:', propertiesTest)
+    alert(`Properties endpoint: ${propertiesTest.message}`)
+    
+    // Test 4: Create property
+    console.log('\n🔍 TEST 4: Create Property')
+    const testData = {
+      address: 'Test Property 123',
+      property_type: 'house',
+      listing_status: 'active',
+      input_method: 'manual',
+      test_mode: true
+    }
+    
+    const createResult = await apiClient.createProperty(testData)
+    console.log('Create property result:', createResult)
+    
+    if (createResult.success) {
+      alert('✅ All tests passed! Property creation working.')
+    } else {
+      alert(`❌ Property creation failed: ${createResult.error}`)
+    }
+    
+  } catch (error) {
+    console.error('❌ Test failed:', error)
+    alert(`❌ Test failed: ${error.message}`)
+  }
+}
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    console.log('=== FORM SUBMISSION STARTED ===')
+    console.log('Event prevented, processing form...')
+    
+    // Debug current state
+    console.log('Current form state:', {
+      formData: formData,
+      address: formData.address,
+      addressLength: formData.address.trim().length,
+      isFormValid: formData.address.trim().length > 0,
+      user: !!user,
+      userId: user?.id,
+      environment: process.env.NODE_ENV,
+      isSubmitting: isSubmitting,
+      isLoading: isLoading,
+      submitError: submitError,
+      currentErrors: errors,
+      images: images.length,
+      onSubmit: typeof onSubmit
+    })
+    
+    // Early validation checks
+    console.log('Checking early validation conditions...')
+    
+    // Allow test_mode in development even without user session
+    if (!user && process.env.NODE_ENV !== 'development') {
+      console.log('❌ STOPPED: User not logged in (production mode)')
+      setSubmitError('You must be logged in to create a property')
+      return
+    }
+    
+    console.log('✅ Authentication check passed')
+    
+    // Run form validation
+    console.log('Running form validation...')
+    const validationPassed = validateForm()
+    console.log('Validation result:', validationPassed)
+    
+    if (!validationPassed) {
+      console.log('❌ STOPPED: Form validation failed')
+      console.log('Validation errors:', errors)
+      setSubmitError('Please fix the errors above before submitting')
+      return
+    }
+    
+    console.log('✅ Form validation passed')
+    console.log('✅ All pre-checks completed, proceeding with submission...')
+    
+    console.log('Setting isSubmitting to true')
+    setIsSubmitting(true)
+    setSubmitError('')
+    setSubmitSuccess(false)
+    
+    try {
+      console.log('Entering try block for property creation...')
+      
+      if (onSubmit) {
+        console.log('Using custom onSubmit function')
+        console.log('Custom onSubmit type:', typeof onSubmit)
+        await onSubmit(formData, images)
+        console.log('✅ Custom onSubmit completed')
+      } else {
+        console.log('Using default submission handler')
+        await handleDefaultSubmit()
+        console.log('✅ Default submission completed')
+      }
+      
+      console.log('✅ Property creation successful!')
+      console.log('Setting submitSuccess to true')
+      setSubmitSuccess(true)
+      
+      // Clear draft after successful submission
+      console.log('Clearing localStorage draft')
+      localStorage.removeItem('perfect-property-draft')
+      
+      console.log('Resetting form state')
+      // Reset form state
+      setFormData({
+        address: '',
+        price: null,
+        property_type: 'house',
+        listing_status: 'active',
+        bedrooms: null,
+        bathrooms: null,
+        square_feet: null,
+        description: '',
+        features: [],
+        source_url: '',
+        input_method: 'manual'
+      })
+      setImages([])
+      
+      console.log('Scheduling redirect to dashboard in 2 seconds...')
+      // Redirect after a short delay
+      setTimeout(() => {
+        console.log('🔄 Redirecting to dashboard now...')
+        router.push('/dashboard')
+      }, 2000)
+      
+    } catch (error) {
+      console.error('❌ SUBMISSION FAILED:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error constructor:', error.constructor.name)
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      })
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create property'
+      console.log('Setting error message:', errorMessage)
+      setSubmitError(errorMessage)
+      setSubmitSuccess(false)
+    } finally {
+      console.log('Resetting isSubmitting to false')
+      setIsSubmitting(false)
+      console.log('=== FORM SUBMISSION COMPLETED ===')
     }
   }
 
-  const isFormValid = formData.address.trim() && Object.keys(errors).length === 0
+  // Simplified validation for testing - only require address
+  const isFormValid = formData.address.trim().length > 0
+  
+  // Debug logging for form state on every render
+  console.log('=== RENDER STATE ===', {
+    isFormValid,
+    isSubmitting,
+    isLoading,
+    submitSuccess,
+    submitError: !!submitError,
+    user: !!user,
+    addressLength: formData.address.trim().length,
+    buttonDisabled: !isFormValid || isSubmitting || isLoading
+  })
 
   return (
     <div className={`w-full max-w-4xl mx-auto ${className}`}>
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Debug Information Panel - Remove this in production */}
+        <div className="card bg-info text-info-content">
+          <div className="card-body">
+            <h4 className="card-title">🐛 Debug Info (Remove in Production)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-sm space-y-1">
+                <div><strong>Form Status:</strong></div>
+                <div>Form Valid: {isFormValid ? '✅' : '❌'}</div>
+                <div>User Logged In: {user ? '✅' : '❌'}</div>
+                <div>Is Submitting: {isSubmitting ? '✅' : '❌'}</div>
+                <div>Address Length: {formData.address.trim().length}</div>
+                <div>Environment: {process.env.NODE_ENV}</div>
+                <div>API Client: {apiClient ? '✅' : '❌'}</div>
+                <div>createProperty Method: {typeof apiClient?.createProperty === 'function' ? '✅' : '❌'}</div>
+                <div>Button Disabled: {(!isFormValid || isSubmitting || isLoading) ? '✅' : '❌'}</div>
+              </div>
+              <div className="text-sm space-y-1">
+                <div><strong>🔐 Session Cache Status:</strong></div>
+                <div>Cache Available: {sessionCacheManager.isCached() ? '✅' : '❌'}</div>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const status = sessionCacheManager.getStatus()
+                      console.log('Session cache status:', status)
+                      alert(`Session Cache Status:\n\nMemory Cache: ${status.hasMemoryCache ? 'Yes' : 'No'}\nStorage Cache: ${status.hasStorageCache ? 'Yes' : 'No'}\n\nMemory Expiry: ${status.memoryExpiry ? new Date(status.memoryExpiry).toLocaleString() : 'N/A'}\nStorage Expiry: ${status.storageExpiry ? new Date(status.storageExpiry).toLocaleString() : 'N/A'}\n\nCurrent Time: ${new Date(status.currentTime).toLocaleString()}`)
+                    }}
+                    className="btn btn-xs btn-outline mr-2"
+                  >
+                    Check Cache
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionCacheManager.clear()
+                      alert('Session cache cleared! Next API call will fetch fresh session.')
+                    }}
+                    className="btn btn-xs btn-outline btn-warning"
+                  >
+                    Clear Cache
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Success Message */}
         {submitSuccess && (
           <div className="alert alert-success">
@@ -356,7 +685,30 @@ export default function PerfectPropertyForm({
         {submitError && (
           <div className="alert alert-error">
             <AlertTriangle className="h-5 w-5" />
-            <span>{submitError}</span>
+            <div className="flex-1">
+              <span>{submitError}</span>
+              {(submitError.toLowerCase().includes('session') || 
+                submitError.toLowerCase().includes('authentication') ||
+                submitError.toLowerCase().includes('log in')) && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={handleSessionRefresh}
+                    disabled={isRefreshingSession}
+                    className="btn btn-sm btn-outline btn-warning"
+                  >
+                    {isRefreshingSession ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs"></span>
+                        Refreshing...
+                      </>
+                    ) : (
+                      'Refresh Session'
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -660,6 +1012,16 @@ export default function PerfectPropertyForm({
               Cancel
             </button>
           )}
+          
+          {/* Enhanced Test Button with Direct API Testing */}
+          <button
+            type="button"
+            onClick={testApiDirectly}
+            className="btn btn-secondary"
+          >
+            🧪 Test API Directly
+          </button>
+          
           <button
             type="submit"
             disabled={!isFormValid || isSubmitting || isLoading}
