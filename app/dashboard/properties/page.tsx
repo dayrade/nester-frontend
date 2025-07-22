@@ -62,7 +62,7 @@ export default function PropertiesPage() {
     
     try {
       const result = await apiClient.getProperties()
-      setProperties(result.properties || [])
+      setProperties(result.data || [])
     } catch (err) {
       console.error('Error fetching properties:', err)
       setError('Failed to load properties. Please try again.')

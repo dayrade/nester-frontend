@@ -208,29 +208,35 @@ class UploadService {
         .from('property-images')
         .getPublicUrl(fileName)
 
-      // Create database record
-      const { data: imageRecord, error: dbError } = await this.supabase
-        .from('property_images')
-        .insert({
-          property_id: propertyId,
-          storage_path: fileName,
-          is_hero: false // Default to false
-        })
-        .select('*')
-        .single()
-
-      if (dbError) {
-        // Clean up uploaded file if database insert fails
+      // Create database record via backend API
+      const formData = new FormData()
+      formData.append('image', imageFile.file)
+      formData.append('storage_path', fileName)
+      formData.append('is_hero', 'false')
+      
+      const response = await fetch(`/api/properties/${propertyId}/images`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${await this.getAuthToken()}`
+        }
+      })
+      
+      if (!response.ok) {
+        // Clean up uploaded file if API call fails
         await this.supabase.storage
           .from('property-images')
           .remove([fileName])
         
-        throw new Error(`Database insert failed: ${dbError.message}`)
+        const errorData = await response.json().catch(() => ({ error: 'API call failed' }))
+        throw new Error(`API call failed: ${errorData.error || response.statusText}`)
       }
+      
+      const imageRecord = await response.json()
 
       return {
         success: true,
-        imageId: imageRecord.id,
+        imageId: imageRecord.data?.id || imageRecord.id,
         url: urlData.publicUrl
       }
 
@@ -287,12 +293,16 @@ class UploadService {
     }
   ): Promise<boolean> {
     try {
-      const { error } = await this.supabase
-        .from('property_images')
-        .update(updates)
-        .eq('id', imageId)
+      const response = await fetch(`/api/properties/images/${imageId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await this.getAuthToken()}`
+        },
+        body: JSON.stringify(updates)
+      })
 
-      return !error
+      return response.ok
     } catch {
       return false
     }
@@ -303,32 +313,25 @@ class UploadService {
    */
   async deleteImage(imageId: string): Promise<boolean> {
     try {
-      // Get image record first
-      const { data: image, error: fetchError } = await this.supabase
-        .from('property_images')
-        .select('storage_path')
-        .eq('id', imageId)
-        .single()
+      const response = await fetch(`/api/properties/images/${imageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await this.getAuthToken()}`
+        }
+      })
 
-      if (fetchError || !image) {
-        return false
-      }
-
-      // Delete from storage
-      const { error: storageError } = await this.supabase.storage
-        .from('property-images')
-        .remove([image.storage_path])
-
-      // Delete from database
-      const { error: dbError } = await this.supabase
-        .from('property_images')
-        .delete()
-        .eq('id', imageId)
-
-      return !storageError && !dbError
+      return response.ok
     } catch {
       return false
     }
+  }
+
+  /**
+   * Get authentication token for API calls
+   */
+  private async getAuthToken(): Promise<string> {
+    const { data: { session } } = await this.supabase.auth.getSession()
+    return session?.access_token || ''
   }
 
   /**

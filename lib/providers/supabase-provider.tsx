@@ -5,6 +5,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import type { Database, User } from '@/types/supabase'
 import type { Session } from '@supabase/supabase-js'
+import { preloadSession } from '@/lib/api-client'
 
 type SupabaseContext = {
   supabase: ReturnType<typeof createBrowserClient<Database>>
@@ -37,6 +38,22 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       } else {
         setSession(session)
         setUser(session?.user as User || null)
+        
+        // Cache session in localStorage if available
+        if (session) {
+          try {
+            localStorage.setItem('nester_session_cache', JSON.stringify({
+              session,
+              timestamp: Date.now(),
+              expiresAt: Date.now() + (10 * 60 * 1000) // 10 minutes
+            }))
+          } catch (err) {
+            console.warn('Failed to cache session:', err)
+          }
+        }
+        
+        // Preload session for API client to avoid delays on first API call
+        preloadSession()
       }
       setLoading(false)
     }
@@ -45,36 +62,79 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email)
         setSession(session)
         setUser(session?.user as User || null)
         setLoading(false)
-        
-        if (event === 'SIGNED_IN') {
-          // Create user record if it doesn't exist
-          if (session?.user) {
-            const { error } = await supabase
+
+        // Handle sign in
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in, creating/updating user record...')
+          
+          try {
+            // Cache session in localStorage
+            localStorage.setItem('nester_session_cache', JSON.stringify({
+              session,
+              timestamp: Date.now(),
+              expiresAt: Date.now() + (10 * 60 * 1000) // 10 minutes
+            }))
+            
+            // Preload session for API client
+            preloadSession()
+            
+            // Upsert user record
+            const { error: upsertError } = await supabase
               .from('users')
               .upsert({
                 id: session.user.id,
                 email: session.user.email!,
-                role: 'agent'
+                updated_at: new Date().toISOString()
               })
-            
-            if (error) {
-              console.error('Error creating user record:', error)
+
+            if (upsertError) {
+              console.error('Error upserting user:', upsertError)
+            } else {
+              console.log('User record updated successfully')
             }
+
+            // Notify Express server about the sign-in
+            try {
+              const response = await fetch('/api/auth/signin', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                  user: session.user,
+                  session: session
+                })
+              })
+
+              if (!response.ok) {
+                console.warn('Failed to notify Express server about sign-in')
+              }
+            } catch (err) {
+              console.warn('Error notifying Express server:', err)
+            }
+          } catch (err) {
+            console.error('Error in sign-in handler:', err)
           }
-          router.refresh()
-        } else if (event === 'SIGNED_OUT') {
-          router.push('/')
-          router.refresh()
+        }
+
+        // Handle sign out
+        if (event === 'SIGNED_OUT') {
+          console.log('User signed out')
+          try {
+            localStorage.removeItem('nester_session_cache')
+          } catch (err) {
+            console.warn('Failed to clear session cache:', err)
+          }
         }
       }
     )
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [supabase, router])
 
   const signIn = async (email: string, password: string) => {

@@ -80,7 +80,15 @@ export default function PerfectPropertyForm({
   className = ''
 }: PerfectPropertyFormProps) {
   const router = useRouter()
-  const { user, supabase } = useSupabase()
+  const { user, supabase, session } = useSupabase()
+  
+  // Authentication state
+  const [authInitialized, setAuthInitialized] = useState(false)
+  const [authStatus, setAuthStatus] = useState<{
+    isAuthenticated: boolean
+    message: string
+    lastChecked: number
+  }>({ isAuthenticated: false, message: 'Checking...', lastChecked: 0 })
   
   // Form state
   const [formData, setFormData] = useState<PerfectPropertyFormData>({
@@ -116,6 +124,60 @@ export default function PerfectPropertyForm({
     console.log('Initial form data:', formData)
   }, [])
   
+  // Initialize authentication on component mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      console.log('🔐 Initializing authentication on component mount...')
+      
+      try {
+        // Check if we already have a valid session from Supabase provider
+        if (session?.access_token) {
+          console.log('✅ Valid session found from provider')
+          setAuthStatus({
+            isAuthenticated: true,
+            message: 'Authentication successful',
+            lastChecked: Date.now()
+          })
+          setAuthInitialized(true)
+          return
+        }
+        
+        // If no session from provider, check cached session
+        const authResult = await apiClient.testAuth()
+        
+        if (authResult.success && authResult.hasSession) {
+          console.log('✅ Valid cached session found')
+          setAuthStatus({
+            isAuthenticated: true,
+            message: 'Authentication successful (cached)',
+            lastChecked: Date.now()
+          })
+        } else {
+          console.log('⚠️ No valid session found')
+          setAuthStatus({
+            isAuthenticated: false,
+            message: authResult.error || 'No valid session',
+            lastChecked: Date.now()
+          })
+        }
+      } catch (error) {
+        console.error('❌ Auth initialization failed:', error)
+        setAuthStatus({
+          isAuthenticated: false,
+          message: `Auth check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          lastChecked: Date.now()
+        })
+      } finally {
+        setAuthInitialized(true)
+      }
+    }
+    
+    // Only initialize if not already done
+    if (!authInitialized) {
+      initializeAuth()
+    }
+  }, [session, authInitialized])
+
   // Auto-save draft functionality
   useEffect(() => {
     const draftKey = 'perfect-property-draft'
@@ -279,11 +341,9 @@ export default function PerfectPropertyForm({
   // 🔥 ENHANCED DEBUG VERSION - Test API directly
  
 
-  // 🔥 ENHANCED DEBUG VERSION - Default submission handler
-// Update your handleDefaultSubmit function in the form component:
-
+  // 🔥 ENHANCED VERSION - Using createPropertyWithImages endpoint
 const handleDefaultSubmit = async () => {
-  console.log('🔥 === DEFAULT SUBMIT HANDLER START ===')
+  console.log('🔥 === DEFAULT SUBMIT HANDLER START (WITH IMAGES) ===')
   
   try {
     // Step 1: Check user
@@ -293,40 +353,21 @@ const handleDefaultSubmit = async () => {
       environment: process.env.NODE_ENV 
     })
     
-    // Step 2: Prepare data
-    console.log('🔍 STEP 2: Preparing property data...')
-    const propertyData = {
-      agent_id: user?.id || '2db617a1-e6b1-4d58-b6eb-37ec7476af37',
-      address: formData.address,
-      price: formData.price,
-      property_type: formData.property_type,
-      listing_status: formData.listing_status,
-      bedrooms: formData.bedrooms,
-      bathrooms: formData.bathrooms,
-      square_feet: formData.square_feet,
-      description: formData.description,
-      features: formData.features,
-      source_url: formData.source_url,
-      input_method: formData.input_method,
-      test_mode: true // Always use test mode for debugging
-    }
-    console.log('✅ Property data prepared:', propertyData)
-    
-    // Step 3: Check API client
-    console.log('🔍 STEP 3: Checking API client...')
+    // Step 2: Check API client
+    console.log('🔍 STEP 2: Checking API client...')
     
     if (!apiClient) {
       throw new Error('❌ apiClient is null/undefined')
     }
     
-    if (typeof apiClient.createProperty !== 'function') {
-      throw new Error('❌ apiClient.createProperty is not a function')
+    if (typeof apiClient.createPropertyWithImages !== 'function') {
+      throw new Error('❌ apiClient.createPropertyWithImages is not a function')
     }
     
     console.log('✅ API client validation passed')
     
-    // Step 4: Test connection first
-    console.log('🔍 STEP 4: Testing backend connection...')
+    // Step 3: Test connection first
+    console.log('🔍 STEP 3: Testing backend connection...')
     const connectionTest = await apiClient.testConnection()
     console.log('Connection test result:', connectionTest)
     
@@ -336,8 +377,8 @@ const handleDefaultSubmit = async () => {
     
     console.log('✅ Backend connection verified')
     
-    // Step 5: Test authentication
-    console.log('🔍 STEP 5: Testing authentication...')
+    // Step 4: Test authentication
+    console.log('🔍 STEP 4: Testing authentication...')
     const authTest = await apiClient.testAuth()
     console.log('Auth test result:', authTest)
     
@@ -348,56 +389,57 @@ const handleDefaultSubmit = async () => {
     
     console.log('✅ Authentication verified (or test mode)')
     
-    // Step 6: Create property
-    console.log('🔍 STEP 6: Creating property...')
-    const result = await apiClient.createProperty(propertyData)
-    console.log('Create property result:', result)
+    // Step 5: Prepare FormData for createPropertyWithImages
+    console.log('🔍 STEP 5: Preparing FormData for property with images...')
+    const formDataToSend = new FormData()
     
-    if (!result.success) {
-      throw new Error(`Property creation failed: ${result.error}`)
+    // Add property data
+    formDataToSend.append('agent_id', user?.id || '2db617a1-e6b1-4d58-b6eb-37ec7476af37')
+    formDataToSend.append('address', formData.address)
+    if (formData.price) formDataToSend.append('price', formData.price.toString())
+    formDataToSend.append('property_type', formData.property_type)
+    formDataToSend.append('listing_status', formData.listing_status)
+    if (formData.bedrooms) formDataToSend.append('bedrooms', formData.bedrooms.toString())
+    if (formData.bathrooms) formDataToSend.append('bathrooms', formData.bathrooms.toString())
+    if (formData.square_feet) formDataToSend.append('square_feet', formData.square_feet.toString())
+    if (formData.description) formDataToSend.append('description', formData.description)
+    if (formData.features.length > 0) formDataToSend.append('features', JSON.stringify(formData.features))
+    if (formData.source_url) formDataToSend.append('source_url', formData.source_url)
+    formDataToSend.append('input_method', formData.input_method)
+    formDataToSend.append('test_mode', 'true')
+    
+    // Add images
+    if (images.length > 0) {
+      console.log(`Adding ${images.length} images to FormData...`)
+      images.forEach((imageFile, index) => {
+        if (imageFile.file) {
+          formDataToSend.append('images', imageFile.file)
+          formDataToSend.append(`image_${index}_roomType`, imageFile.roomType || '')
+          formDataToSend.append(`image_${index}_isPrimary`, (index === 0).toString())
+          formDataToSend.append(`image_${index}_displayOrder`, index.toString())
+          formDataToSend.append(`image_${index}_altText`, `Property image ${index + 1}`)
+        }
+      })
     }
     
-    if (!result.data || !result.data.id) {
+    console.log('✅ FormData prepared with property data and images')
+    
+    // Step 6: Create property with images in single transaction
+    console.log('🔍 STEP 6: Creating property with images...')
+    const result = await apiClient.createPropertyWithImages(formDataToSend)
+    console.log('Create property with images result:', result)
+    
+    if (!result.success) {
+      throw new Error(`Property creation with images failed: ${result.error}`)
+    }
+    
+    if (!result.data || !result.success) {
       throw new Error('Invalid API response - missing property data or ID')
     }
     
-    const property = result.data
+    const property = result.data.property
     console.log('✅ Property created successfully with ID:', property.id)
-
-    // Step 7: Upload images if any
-    if (images.length > 0) {
-      console.log(`🔍 STEP 7: Uploading ${images.length} images...`)
-      
-      const uploadResults = []
-      for (let i = 0; i < images.length; i++) {
-        const imageFile = images[i]
-        console.log(`Uploading image ${i + 1}/${images.length}:`, {
-          file: imageFile.file?.name,
-          roomType: imageFile.roomType,
-          size: imageFile.file?.size
-        })
-        
-        const imageFormData = new FormData()
-        imageFormData.append('image', imageFile.file)
-        imageFormData.append('displayOrder', i.toString())
-        imageFormData.append('isPrimary', (i === 0).toString())
-        imageFormData.append('roomType', imageFile.roomType || '')
-        imageFormData.append('altText', `Property image ${i + 1}`)
-        
-        const uploadResult = await apiClient.uploadPropertyImage(property.id, imageFormData)
-        console.log(`Upload result for image ${i + 1}:`, uploadResult)
-        
-        if (!uploadResult.success) {
-          console.warn(`⚠️ Failed to upload image ${i + 1}:`, uploadResult.error)
-        } else {
-          uploadResults.push(uploadResult)
-        }
-      }
-      
-      console.log('✅ Image upload process completed:', uploadResults.length, 'successful uploads')
-    } else {
-      console.log('ℹ️ No images to upload')
-    }
+    console.log('✅ Images uploaded:', result.data.property.property_images?.length || 0)
 
     // Step 8: Trigger content generation
     try {
@@ -421,18 +463,18 @@ const handleDefaultSubmit = async () => {
   } catch (error) {
     console.error('🔥 DEFAULT SUBMIT HANDLER ERROR:', error)
     console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      cause: error.cause
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      cause: error instanceof Error ? (error as any).cause : undefined
     })
     throw error
   }
 }
 
-// Also update your test button function:
+// Updated test function for createPropertyWithImages:
 const testApiDirectly = async () => {
-  console.log('🧪 === COMPREHENSIVE API TEST ===')
+  console.log('🧪 === COMPREHENSIVE API TEST (WITH IMAGES) ===')
   
   try {
     // Test 1: Connection
@@ -447,11 +489,28 @@ const testApiDirectly = async () => {
     
     alert('✅ Backend connection successful!')
     
-    // Test 2: Authentication
-    console.log('\n🔍 TEST 2: Authentication')
-    const authTest = await apiClient.testAuth()
-    console.log('Auth result:', authTest)
-    alert(`Auth status: ${authTest.message}`)
+    // Test 2: Authentication (use cached status)
+    console.log('\n🔍 TEST 2: Authentication (cached)')
+    console.log('Cached auth status:', authStatus)
+    
+    // Only refresh auth if cache is older than 5 minutes
+    const cacheAge = Date.now() - authStatus.lastChecked
+    const shouldRefreshAuth = cacheAge > 5 * 60 * 1000 // 5 minutes
+    
+    if (shouldRefreshAuth) {
+      console.log('🔄 Auth cache expired, refreshing...')
+      const authTest = await apiClient.testAuth()
+      console.log('Fresh auth result:', authTest)
+      setAuthStatus({
+        isAuthenticated: authTest.success,
+        message: authTest.message,
+        lastChecked: Date.now()
+      })
+      alert(`Auth status (refreshed): ${authTest.message}`)
+    } else {
+      console.log('✅ Using cached auth status')
+      alert(`Auth status (cached): ${authStatus.message}`)
+    }
     
     // Test 3: Properties endpoint
     console.log('\n🔍 TEST 3: Properties Endpoint')
@@ -459,28 +518,28 @@ const testApiDirectly = async () => {
     console.log('Properties endpoint result:', propertiesTest)
     alert(`Properties endpoint: ${propertiesTest.message}`)
     
-    // Test 4: Create property
-    console.log('\n🔍 TEST 4: Create Property')
-    const testData = {
-      address: 'Test Property 123',
-      property_type: 'house',
-      listing_status: 'active',
-      input_method: 'manual',
-      test_mode: true
-    }
+    // Test 4: Create property with images
+    console.log('\n🔍 TEST 4: Create Property With Images')
+    const testFormData = new FormData()
+    testFormData.append('address', 'Test Property 123 Main St')
+    testFormData.append('property_type', 'house')
+    testFormData.append('listing_status', 'active')
+    testFormData.append('input_method', 'manual')
+    testFormData.append('test_mode', 'true')
+    testFormData.append('agent_id', user?.id || '2db617a1-e6b1-4d58-b6eb-37ec7476af37')
     
-    const createResult = await apiClient.createProperty(testData)
-    console.log('Create property result:', createResult)
+    const createResult = await apiClient.createPropertyWithImages(testFormData)
+    console.log('Create property with images result:', createResult)
     
     if (createResult.success) {
-      alert('✅ All tests passed! Property creation working.')
+      alert('✅ All tests passed! Property creation with images working.')
     } else {
-      alert(`❌ Property creation failed: ${createResult.error}`)
+      alert(`❌ Property creation with images failed: ${createResult.error}`)
     }
     
   } catch (error) {
     console.error('❌ Test failed:', error)
-    alert(`❌ Test failed: ${error.message}`)
+    alert(`❌ Test failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
@@ -589,12 +648,12 @@ const testApiDirectly = async () => {
     } catch (error) {
       console.error('❌ SUBMISSION FAILED:', error)
       console.error('Error type:', typeof error)
-      console.error('Error constructor:', error.constructor.name)
+      console.error('Error constructor:', error instanceof Error ? error.constructor.name : typeof error)
       console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        cause: error instanceof Error ? (error as any).cause : undefined
       })
       
       const errorMessage = error instanceof Error ? error.message : 'Failed to create property'
@@ -635,6 +694,8 @@ const testApiDirectly = async () => {
                 <div><strong>Form Status:</strong></div>
                 <div>Form Valid: {isFormValid ? '✅' : '❌'}</div>
                 <div>User Logged In: {user ? '✅' : '❌'}</div>
+                <div>Auth Status: {authInitialized ? (authStatus.isAuthenticated ? '✅ Authenticated' : '❌ Not authenticated') : '🔄 Checking...'}</div>
+                <div>Auth Message: {authStatus.message}</div>
                 <div>Is Submitting: {isSubmitting ? '✅' : '❌'}</div>
                 <div>Address Length: {formData.address.trim().length}</div>
                 <div>Environment: {process.env.NODE_ENV}</div>
@@ -645,6 +706,7 @@ const testApiDirectly = async () => {
               <div className="text-sm space-y-1">
                 <div><strong>🔐 Session Cache Status:</strong></div>
                 <div>Cache Available: {sessionCacheManager.isCached() ? '✅' : '❌'}</div>
+                <div>Auth Cache Age: {authInitialized ? `${Math.round((Date.now() - authStatus.lastChecked) / 1000)}s` : 'N/A'}</div>
                 <div className="mt-2">
                   <button
                     type="button"

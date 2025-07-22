@@ -16,8 +16,12 @@ interface CachedSession {
 }
 
 let sessionCache: CachedSession | null = null
-const SESSION_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const SESSION_CACHE_DURATION = 10 * 60 * 1000 // 10 minutes (increased from 5)
 const SESSION_STORAGE_KEY = 'nester_session_cache'
+
+// Global flag to prevent multiple simultaneous session fetches
+let isSessionFetching = false
+let sessionFetchPromise: Promise<{ session: any; error: any }> | null = null
 
 /**
  * Load session from browser storage
@@ -78,7 +82,29 @@ function clearSessionFromStorage() {
 }
 
 /**
+ * Preload session on app initialization to avoid delays on first API call
+ * This should be called when the app starts or user visits the site
+ */
+export async function preloadSession() {
+  console.log('🚀 Preloading session...')
+  try {
+    await getValidSession()
+    console.log('✅ Session preloaded successfully')
+  } catch (err) {
+    console.warn('⚠️ Session preload failed:', err)
+  }
+}
+
+/**
+ * Check if session is cached and valid
+ */
+export function isSessionCached(): boolean {
+  return !!(sessionCache && Date.now() < sessionCache.expiresAt) || !!loadSessionFromStorage()
+}
+
+/**
  * Enhanced session retrieval with browser caching for faster authentication
+ * Prevents multiple simultaneous session fetches
  */
 async function getValidSession() {
   console.log('🔐 Getting valid session...')
@@ -98,8 +124,40 @@ async function getValidSession() {
       return { session: storedSession.session, error: null }
     }
     
-    console.log('🔄 Fetching fresh session from Supabase...')
+    // Prevent multiple simultaneous session fetches
+    if (isSessionFetching && sessionFetchPromise) {
+      console.log('🔄 Session fetch already in progress, waiting...')
+      return await sessionFetchPromise
+    }
     
+    // Mark as fetching and create promise
+    isSessionFetching = true
+    sessionFetchPromise = fetchFreshSession()
+    
+    try {
+      const result = await sessionFetchPromise
+      return result
+    } finally {
+      isSessionFetching = false
+      sessionFetchPromise = null
+    }
+    
+  } catch (err) {
+    console.error('❌ Session retrieval failed:', err)
+    clearSessionFromStorage()
+    isSessionFetching = false
+    sessionFetchPromise = null
+    return { session: null, error: err }
+  }
+}
+
+/**
+ * Internal function to fetch fresh session from Supabase
+ */
+async function fetchFreshSession() {
+  console.log('🔄 Fetching fresh session from Supabase...')
+  
+  try {
     // Third attempt: get current session from Supabase
     const { data: { session }, error } = await supabase.auth.getSession()
     
@@ -132,7 +190,7 @@ async function getValidSession() {
     return { session: null, error: refreshError || new Error('No valid session available') }
     
   } catch (err) {
-    console.error('❌ Session retrieval failed:', err)
+    console.error('❌ Fresh session fetch failed:', err)
     clearSessionFromStorage()
     return { session: null, error: err }
   }
@@ -169,9 +227,23 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
     console.log('🎯 Full URL:', fullUrl)
 
     // Prepare headers with authentication
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+    }
+    
+    // Add any additional headers from options
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => {
+          headers[key] = value
+        })
+      } else if (Array.isArray(options.headers)) {
+        options.headers.forEach(([key, value]) => {
+          headers[key] = value
+        })
+      } else {
+        Object.assign(headers, options.headers)
+      }
     }
     
     // Add auth header if we have a valid session (and not test mode)
@@ -203,9 +275,9 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
   } catch (error) {
     console.error('❌ authenticatedFetch error:', error)
     console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     })
     throw error // Re-throw to ensure it bubbles up
   }
@@ -254,9 +326,9 @@ export async function authenticatedFetchJson(url: string, options: RequestInit =
   } catch (error) {
     console.error('❌ authenticatedFetchJson error:', error)
     console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     })
     throw error // Re-throw to ensure it bubbles up
   }
@@ -326,7 +398,7 @@ export const apiClient = {
       // Return error in expected format
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -345,7 +417,7 @@ export const apiClient = {
       console.error('❌ getProperties failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: []
       }
     }
@@ -364,7 +436,7 @@ export const apiClient = {
       console.error('❌ getProperty failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -386,7 +458,7 @@ export const apiClient = {
       console.error('❌ updateProperty failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -407,7 +479,7 @@ export const apiClient = {
       console.error('❌ deleteProperty failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -458,7 +530,7 @@ export const apiClient = {
       console.error('❌ uploadPropertyImage failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -477,7 +549,7 @@ export const apiClient = {
       console.error('❌ getPropertyImages failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: []
       }
     }
@@ -498,7 +570,59 @@ export const apiClient = {
       console.error('❌ deletePropertyImage failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
+        data: null
+      }
+    }
+  },
+
+  // Create property with images in single transaction
+  async createPropertyWithImages(formData: FormData) {
+    console.log('🏠📸 apiClient.createPropertyWithImages called')
+    
+    try {
+      const { session, error: sessionError } = await getValidSession()
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('Authentication required for property creation with images')
+      }
+
+      const baseUrl = getApiBaseUrl()
+      const url = `${baseUrl}/properties/create-with-images`
+      
+      console.log('🎯 Creating property with images at:', url)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          // Don't set Content-Type for FormData - browser will set it with boundary
+        },
+        body: formData,
+      })
+
+      console.log('📨 Create property with images response:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Create property with images error:', errorText)
+        throw new Error(`Property creation failed: ${response.status} - ${errorText}`)
+      }
+
+      const responseData = await response.json()
+      console.log('✅ Property with images created successfully:', responseData)
+      
+      return { 
+        success: true,
+        data: responseData.data || responseData,
+        message: responseData.message || 'Property created with images successfully'
+      }
+      
+    } catch (error) {
+      console.error('❌ createPropertyWithImages failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -524,7 +648,7 @@ export const apiClient = {
       console.error('❌ generatePropertyContent failed:', error)
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         data: null
       }
     }
@@ -562,7 +686,7 @@ export const apiClient = {
       console.error('❌ Connection test failed:', error)
       return { 
         success: false, 
-        error: error.message, 
+        error: error instanceof Error ? error.message : String(error), 
         message: 'Cannot connect to backend' 
       }
     }
@@ -627,7 +751,7 @@ export const apiClient = {
       console.error('❌ Properties endpoint test failed:', error)
       return { 
         success: false, 
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         message: 'Properties endpoint test failed' 
       }
     }
